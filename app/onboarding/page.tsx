@@ -35,7 +35,12 @@ type NicknameResponse = {
 };
 
 export default function OnboardingPage() {
-  const { game, patchGame } = useGame();
+  const {
+    game,
+    patchGame,
+    setNickname: setGameNickname,
+  } = useGame();
+
   const router = useRouter();
 
   const [characterId, setCharacterId] = useState<CharacterId>(
@@ -140,6 +145,7 @@ export default function OnboardingPage() {
       }
 
       setSavedNickname(trimmedNickname);
+      setGameNickname(trimmedNickname);
       setNicknameRequired(false);
     } catch (error) {
       setNicknameError(
@@ -153,8 +159,14 @@ export default function OnboardingPage() {
   };
 
   const startGame = () => {
+    const finalNickname =
+      savedNickname.trim() ||
+      nickname.trim() ||
+      game.nickname.trim();
+
     patchGame({
       characterId,
+      nickname: finalNickname,
       onboardingComplete: true,
     });
 
@@ -163,7 +175,10 @@ export default function OnboardingPage() {
 
   if (nicknameLoading) {
     return (
-      <main className="start-v4" aria-label="TTOK LIFE 회원정보 확인">
+      <main
+        className="start-v4"
+        aria-label="TTOK LIFE 회원정보 확인"
+      >
         <div className="start-v4-phone">
           <section className="v4-panel">
             <h1>회원정보를 확인하고 있어요</h1>
@@ -176,14 +191,22 @@ export default function OnboardingPage() {
 
   if (nicknameRequired) {
     return (
-      <main className="start-v4" aria-label="TTOK LIFE 닉네임 설정">
+      <main
+        className="start-v4"
+        aria-label="TTOK LIFE 닉네임 설정"
+      >
         <div className="start-v4-phone">
-          <div className="start-v4-sky" aria-hidden="true">
+          <div
+            className="start-v4-sky"
+            aria-hidden="true"
+          >
             <i className="v4-cloud c1" />
             <i className="v4-cloud c2" />
             <i className="v4-cloud c3" />
+
             <div className="v4-city city-left" />
             <div className="v4-city city-right" />
+
             <div className="v4-bridge">
               <i />
               <i />
@@ -197,6 +220,7 @@ export default function OnboardingPage() {
               <strong>LIFE</strong>
               <em>◆</em>
             </div>
+
             <p>
               걷기만 해도
               <br />
@@ -204,17 +228,22 @@ export default function OnboardingPage() {
             </p>
           </header>
 
-          <section className="v4-hero" aria-label="달리는 캐릭터">
+          <section
+            className="v4-hero"
+            aria-label="달리는 캐릭터"
+          >
             <img
               className="v4-runner girl"
               src="/assets/characters/girl-running.png"
               alt="달리는 여자 캐릭터"
             />
+
             <img
               className="v4-runner boy"
               src="/assets/characters/boy-running.png"
               alt="달리는 남자 캐릭터"
             />
+
             <div className="v4-bubble">
               건강도 챙기고
               <br />
@@ -225,7 +254,11 @@ export default function OnboardingPage() {
           <section className="v4-panel">
             <h1>게임에서 사용할 닉네임을 정해주세요</h1>
 
-            <p>{memberName ? `${memberName}님, 반가워요!` : "반가워요!"}</p>
+            <p>
+              {memberName
+                ? `${memberName}님, 반가워요!`
+                : "반가워요!"}
+            </p>
 
             <input
               type="text"
@@ -254,10 +287,13 @@ export default function OnboardingPage() {
                 display: "block",
                 minHeight: "22px",
                 marginTop: "8px",
-                color: nicknameError ? "#e53935" : "#64748b",
+                color: nicknameError
+                  ? "#e53935"
+                  : "#64748b",
               }}
             >
-              {nicknameError || "닉네임은 나중에 변경할 수 있습니다."}
+              {nicknameError ||
+                "닉네임은 나중에 변경할 수 있습니다."}
             </small>
 
             <button
@@ -266,7 +302,9 @@ export default function OnboardingPage() {
               disabled={nicknameSaving}
               onClick={saveNickname}
             >
-              {nicknameSaving ? "저장 중..." : "닉네임 저장하기"}
+              {nicknameSaving
+                ? "저장 중..."
+                : "닉네임 저장하기"}
             </button>
           </section>
         </div>
@@ -275,14 +313,22 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="start-v4" aria-label="TTOK LIFE 시작화면">
+    <main
+      className="start-v4"
+      aria-label="TTOK LIFE 시작화면"
+    >
       <div className="start-v4-phone">
-        <div className="start-v4-sky" aria-hidden="true">
+        <div
+          className="start-v4-sky"
+          aria-hidden="true"
+        >
           <i className="v4-cloud c1" />
           <i className="v4-cloud c2" />
           <i className="v4-cloud c3" />
+
           <div className="v4-city city-left" />
           <div className="v4-city city-right" />
+
           <div className="v4-bridge">
             <i />
             <i />
@@ -296,6 +342,7 @@ export default function OnboardingPage() {
             <strong>LIFE</strong>
             <em>◆</em>
           </div>
+
           <p>
             걷기만 해도
             <br />
@@ -303,22 +350,28 @@ export default function OnboardingPage() {
           </p>
         </header>
 
-        <section className="v4-hero" aria-label="달리는 캐릭터">
+        <section
+          className="v4-hero"
+          aria-label="달리는 캐릭터"
+        >
           <img
             className="v4-runner girl"
             src="/assets/characters/girl-running.png"
             alt="달리는 여자 캐릭터"
           />
+
           <img
             className="v4-runner boy"
             src="/assets/characters/boy-running.png"
             alt="달리는 남자 캐릭터"
           />
+
           <div className="v4-bubble">
             건강도 챙기고
             <br />
             상품도 받자!
           </div>
+
           <span className="v4-flower f1">✿</span>
           <span className="v4-flower f2">✿</span>
           <span className="v4-flower f3">✿</span>
@@ -326,39 +379,62 @@ export default function OnboardingPage() {
 
         <section className="v4-panel">
           {savedNickname && (
-            <p>{savedNickname}님, 캐릭터를 선택해주세요!</p>
+            <p>
+              {savedNickname}님, 캐릭터를 선택해주세요!
+            </p>
           )}
 
           <h1>캐릭터를 선택해주세요</h1>
 
           <div className="v4-options">
             {characters.map((character) => {
-              const selected = character.id === characterId;
+              const selected =
+                character.id === characterId;
 
               return (
                 <button
                   key={character.id}
                   type="button"
-                  className={`v4-option ${selected ? "selected" : ""}`}
-                  onClick={() => setCharacterId(character.id)}
+                  className={`v4-option ${
+                    selected ? "selected" : ""
+                  }`}
+                  onClick={() =>
+                    setCharacterId(character.id)
+                  }
                   aria-pressed={selected}
                 >
-                  <span className="v4-num">{character.number}</span>
-                  {selected && <span className="v4-check">✓</span>}
-                  <span className="v4-portrait">
-                    <img src={character.image} alt="" />
+                  <span className="v4-num">
+                    {character.number}
                   </span>
+
+                  {selected && (
+                    <span className="v4-check">✓</span>
+                  )}
+
+                  <span className="v4-portrait">
+                    <img
+                      src={character.image}
+                      alt=""
+                    />
+                  </span>
+
                   <b>{character.label}</b>
                 </button>
               );
             })}
           </div>
 
-          <button type="button" className="v4-start" onClick={startGame}>
+          <button
+            type="button"
+            className="v4-start"
+            onClick={startGame}
+          >
             시작하기
           </button>
 
-          <small className="v4-build">START V4</small>
+          <small className="v4-build">
+            START V4
+          </small>
         </section>
       </div>
     </main>
