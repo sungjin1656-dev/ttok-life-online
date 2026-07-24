@@ -1,0 +1,3 @@
+TL08 HOME
+- app/home/page.tsx MASTER UI implementation
+- START screen preserved

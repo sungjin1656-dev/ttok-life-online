@@ -1,0 +1,7 @@
+TL12 우리 동네 걷기왕
+- MASTER UI 기반 주간/누적/동네 4명전 탭 구현
+- 지역 선택 UI 구현
+- TOP 3 포디움 및 4위 이하 리스트 구현
+- 내 순위 하단 강조 표시
+- GameContext의 닉네임, 캐릭터, 걸음수 연동
+- 기존 START/HOME/FARM/WALK/REWARDS 및 하단 메뉴 유지

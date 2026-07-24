@@ -1,0 +1,6 @@
+
+TL15.1 DESKTOP PHONE CANVAS LOCK
+- Desktop width locked to 430px
+- All routes centered
+- Fixed navigation locked to same width
+- Mobile remains full width

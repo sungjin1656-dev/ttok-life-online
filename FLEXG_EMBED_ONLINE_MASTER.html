@@ -1,0 +1,40 @@
+<iframe
+  id="ttok-life-frame"
+  src="https://ttok-life-online-v1.vercel.app"
+  style="width:100%;max-width:430px;height:900px;border:none;display:block;margin:0 auto;background:#fff;overflow:hidden;"
+></iframe>
+
+<script>
+(function () {
+  var frame = document.getElementById('ttok-life-frame');
+  var targetOrigin = 'https://ttok-life-online-v1.vercel.app';
+
+  function readGlobal(name) {
+    try {
+      if (name === 'member_id' && typeof member_id !== 'undefined') return member_id;
+      if (name === 'member_name' && typeof member_name !== 'undefined') return member_name;
+    } catch (e) {}
+    try { return window[name]; } catch (e) { return ''; }
+  }
+
+  function sendMember() {
+    if (!frame || !frame.contentWindow) return;
+    frame.contentWindow.postMessage({
+      type: 'TTOK_LIFE_MEMBER',
+      member_id: String(readGlobal('member_id') || '').trim(),
+      member_name: String(readGlobal('member_name') || '').trim()
+    }, targetOrigin);
+  }
+
+  frame.addEventListener('load', function () {
+    [100, 400, 1000, 2500, 5000].forEach(function (delay) {
+      setTimeout(sendMember, delay);
+    });
+  });
+
+  window.addEventListener('message', function (event) {
+    if (event.origin !== targetOrigin) return;
+    if (event.data && event.data.type === 'TTOK_LIFE_MEMBER_REQUEST') sendMember();
+  });
+})();
+</script>

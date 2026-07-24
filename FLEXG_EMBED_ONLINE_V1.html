@@ -1,0 +1,40 @@
+<!-- TTOK LIFE ONLINE V1 / FlexG HTML 포틀릿에 전체 붙여넣기 -->
+<div id="ttok-life-online-v1" style="width:100%;">
+  <iframe
+    id="ttok-life-frame"
+    src="https://ttok-game-v1.vercel.app"
+    title="TTOK LIFE"
+    style="width:100%;max-width:430px;height:900px;border:0;display:block;margin:0 auto;background:#fff;overflow:hidden;"
+    allow="clipboard-write"
+  ></iframe>
+</div>
+<script>
+(function () {
+  "use strict";
+  var frame = document.getElementById("ttok-life-frame");
+  if (!frame) return;
+
+  function currentMember() {
+    return {
+      type: "TTOK_LIFE_MEMBER",
+      version: 1,
+      member_id: typeof member_id === "string" ? member_id : "",
+      member_name: typeof member_name === "string" ? member_name : ""
+    };
+  }
+
+  function sendMember() {
+    if (!frame.contentWindow) return;
+    frame.contentWindow.postMessage(currentMember(), "https://ttok-game-v1.vercel.app");
+  }
+
+  frame.addEventListener("load", sendMember);
+  window.addEventListener("message", function (event) {
+    if (event.origin !== "https://ttok-game-v1.vercel.app") return;
+    if (!event.data || event.data.type !== "TTOK_LIFE_MEMBER_REQUEST") return;
+    sendMember();
+  });
+
+  window.setTimeout(sendMember, 500);
+})();
+</script>

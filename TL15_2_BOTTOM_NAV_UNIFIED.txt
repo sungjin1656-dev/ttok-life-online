@@ -1,0 +1,5 @@
+TL15.2 BOTTOM NAV UNIFIED
+- All routes use components/ui/BottomNav.tsx
+- Farm and Rewards custom nav removed
+- TTBottomNav now wraps the shared BottomNav
+- Desktop/mobile width, icons, spacing and active state unified
