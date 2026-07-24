@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useGame } from "@/context/GameContext";
 import type { CharacterId } from "@/lib/game";
 
@@ -37,7 +37,6 @@ type NicknameResponse = {
 export default function OnboardingPage() {
   const { game, patchGame } = useGame();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [characterId, setCharacterId] = useState<CharacterId>(
     game.characterId === "hajun" ? "hajun" : "hani"
@@ -54,8 +53,10 @@ export default function OnboardingPage() {
   const [nicknameError, setNicknameError] = useState("");
 
   useEffect(() => {
-    const id = searchParams.get("member_id")?.trim() ?? "";
-    const name = searchParams.get("member_name")?.trim() ?? "";
+    const params = new URLSearchParams(window.location.search);
+
+    const id = params.get("member_id")?.trim() ?? "";
+    const name = params.get("member_name")?.trim() ?? "";
 
     setMemberId(id);
     setMemberName(name);
@@ -79,7 +80,9 @@ export default function OnboardingPage() {
         const result = (await response.json()) as NicknameResponse;
 
         if (!response.ok || !result.ok) {
-          throw new Error(result.message || "닉네임 정보를 불러오지 못했습니다.");
+          throw new Error(
+            result.message || "닉네임 정보를 불러오지 못했습니다."
+          );
         }
 
         const currentNickname = result.nickname?.trim() ?? "";
@@ -99,7 +102,7 @@ export default function OnboardingPage() {
     };
 
     void loadNickname();
-  }, [searchParams]);
+  }, []);
 
   const saveNickname = async () => {
     const trimmedNickname = nickname.trim();
@@ -222,9 +225,7 @@ export default function OnboardingPage() {
           <section className="v4-panel">
             <h1>게임에서 사용할 닉네임을 정해주세요</h1>
 
-            <p>
-              {memberName ? `${memberName}님, 반가워요!` : "반가워요!"}
-            </p>
+            <p>{memberName ? `${memberName}님, 반가워요!` : "반가워요!"}</p>
 
             <input
               type="text"
@@ -324,7 +325,9 @@ export default function OnboardingPage() {
         </section>
 
         <section className="v4-panel">
-          {savedNickname && <p>{savedNickname}님, 캐릭터를 선택해주세요!</p>}
+          {savedNickname && (
+            <p>{savedNickname}님, 캐릭터를 선택해주세요!</p>
+          )}
 
           <h1>캐릭터를 선택해주세요</h1>
 
