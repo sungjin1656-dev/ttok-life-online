@@ -3201,7 +3201,7 @@ button{cursor:pointer}
     position:absolute;
 
     left:50%;
-    bottom:-60px;
+    bottom:-50px;
 
     width:210px;
     height:310px;
@@ -4256,7 +4256,7 @@ button{cursor:pointer}
   animation-play-state: paused;
 
   transform:
-    translateX(-50%)
+    translateX(60%)
     scale(1);
 }
 
@@ -4616,21 +4616,8 @@ button{cursor:pointer}
   position:relative;
   z-index:5;
 }
-.walk-sensor-error {
-  margin: 12px 20px 0;
-  padding: 10px 12px;
-
-  border-radius: 12px;
-  background: rgba(255, 238, 238, 0.95);
-
-  color: #d94c4c;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.45;
-  text-align: center;
-}
-/* 멈춰 있는 하니 크기 */
 .walk-runner-wrap.is-paused img {
-  width: 130px !important;
+  width: 120px !important;
   height: auto !important;
+  animation: none !important;
 }
