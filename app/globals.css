@@ -3201,7 +3201,7 @@ button{cursor:pointer}
     position:absolute;
 
     left:50%;
-    bottom:25px;
+    bottom:-60px;
 
     width:210px;
     height:310px;
@@ -3223,7 +3223,7 @@ button{cursor:pointer}
 
 .walk-runner-wrap img{
 
-    width:180px;
+    width:80px;
     height:auto;
 
     object-fit:contain;
@@ -4239,15 +4239,19 @@ button{cursor:pointer}
  <div className={`walk-runner-wrap ${walking ? "is-walking" : "is-paused"}`}>
 */
 
-.walk-runner-wrap.is-paused img {
-  animation-play-state: paused;
+.walk-runner-wrap.is-paused img{
 
-  transform:
-    translateY(0)
-    rotate(0)
-    scale(1);
+    animation:none;
+
+    transform:
+
+        translateY(0)
+
+        rotate(0deg)
+
+        scale(1);
+
 }
-
 .walk-runner-wrap.is-paused::after {
   animation-play-state: paused;
 
@@ -4584,4 +4588,49 @@ button{cursor:pointer}
     0 5px 14px rgba(47, 134, 230, 0.24),
     inset 0 2px 0 rgba(255, 255, 255, 0.34),
     inset 0 -3px 6px rgba(18, 84, 159, 0.18) !important;
+}
+/* WALK FOREST BACKGROUND */
+.walk-master-stage{
+  position:relative;
+  overflow:hidden;
+
+  background-image:url("/assets/backgrounds/forest-walk.png") !important;
+  background-size:cover !important;
+  background-position:center center !important;
+  background-repeat:no-repeat !important;
+}
+
+.walk-master-stage .walk-cloud,
+.walk-master-stage .walk-city,
+.walk-master-stage .walk-bridge,
+.walk-master-stage .walk-sea,
+.walk-master-stage .walk-ground,
+.walk-master-stage .walk-path-ribbon,
+.walk-master-stage .walk-flowers{
+  display:none !important;
+}
+
+.walk-master-header,
+.walk-dev-water,
+.walk-runner-wrap{
+  position:relative;
+  z-index:5;
+}
+.walk-sensor-error {
+  margin: 12px 20px 0;
+  padding: 10px 12px;
+
+  border-radius: 12px;
+  background: rgba(255, 238, 238, 0.95);
+
+  color: #d94c4c;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
+}
+/* 멈춰 있는 하니 크기 */
+.walk-runner-wrap.is-paused img {
+  width: 130px !important;
+  height: auto !important;
 }
