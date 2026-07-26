@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Guard } from "@/components/ui/Guard";
@@ -101,7 +101,48 @@ export default function FarmPage() {
   const [isWatering, setIsWatering] = useState(false);
 
   const [showWaterEffect, setShowWaterEffect] = useState(false);
+const [haniAssetsReady, setHaniAssetsReady] = useState(false);
 
+useEffect(() => {
+  let cancelled = false;
+
+  const preloadHaniImages = async () => {
+    const sources = [
+      "/character/hani_idle.png",
+      "/character/hani_watering.png",
+      "/character/hani_reward.png",
+    ];
+
+    try {
+      await Promise.all(
+        sources.map(
+          (src) =>
+            new Promise<void>((resolve) => {
+              const image = new Image();
+
+              image.onload = () => resolve();
+              image.onerror = () => resolve();
+              image.src = src;
+
+              if (image.complete) {
+                resolve();
+              }
+            })
+        )
+      );
+    } finally {
+      if (!cancelled) {
+        setHaniAssetsReady(true);
+      }
+    }
+  };
+
+  preloadHaniImages();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
 
   const {
@@ -633,36 +674,24 @@ export default function FarmPage() {
 
                 }
 
-                disabled={!ready && isWatering}
+                disabled={!ready && (isWatering || !haniAssetsReady)}
 
               >
 
 
-                {
+            {
+  ready
+    ? "수확하기"
+    : !haniAssetsReady
+      ? "준비 중..."
+      : isWatering
+        ? "물을 주는 중..."
+        : <>
+            💧 물주기 {cost}
+          </>
+}
 
-                  ready
-
-                    ?
-
-                    "수확하기"
-
-                    :
-
-                    isWatering
-
-                      ?
-
-                      "물을 주는 중..."
-
-                      :
-
-                      <>
-
-                        💧 물주기 {cost}
-
-                      </>
-
-                }
+                
 
 
               </button>
@@ -803,7 +832,7 @@ export default function FarmPage() {
 
 
 
-          {/* WATER EFFECT STYLE */}
+          
 
           <style>{`
 
@@ -815,197 +844,6 @@ export default function FarmPage() {
             */
             .farm-water-effect {
 
-              position: absolute;
-
-              left: 50%;
-
-              bottom: 105px;
-
-              width: 150px;
-
-              height: 150px;
-
-              transform: translateX(-50%);
-
-              z-index: 70;
-
-              pointer-events: none;
-
-              overflow: visible;
-
-            }
-
-
-
-            .farm-water-drop {
-
-              position: absolute;
-
-              left: 50%;
-
-              top: 0;
-
-              width: 26px;
-
-              height: 26px;
-
-              object-fit: contain;
-
-              opacity: 0;
-
-              will-change: transform, opacity;
-
-              animation-name: farm-water-drop-fall;
-
-              animation-duration: 0.8s;
-
-              animation-timing-function: ease-in;
-
-              animation-fill-mode: forwards;
-
-            }
-
-
-
-            .farm-water-drop-1 {
-
-              margin-left: -52px;
-
-              animation-delay: 0s;
-
-            }
-
-
-
-            .farm-water-drop-2 {
-
-              margin-left: -20px;
-
-              animation-delay: 0.14s;
-
-            }
-
-
-
-            .farm-water-drop-3 {
-
-              margin-left: 12px;
-
-              animation-delay: 0.28s;
-
-            }
-
-
-
-            @keyframes farm-water-drop-fall {
-
-              0% {
-
-                opacity: 0;
-
-                transform:
-
-                  translate(-38px, -42px)
-
-                  scale(0.72)
-
-                  rotate(-8deg);
-
-              }
-
-
-
-              18% {
-
-                opacity: 1;
-
-              }
-
-
-
-              82% {
-
-                opacity: 1;
-
-              }
-
-
-
-              100% {
-
-                opacity: 0;
-
-                transform:
-
-                  translate(18px, 88px)
-
-                  scale(1)
-
-                  rotate(5deg);
-
-              }
-
-            }
-
-
-
-            /*
-              물주는 동안 하니 이미지 전환을 부드럽게 표시
-            */
-            .farm-hani.watering img {
-
-              animation:
-
-                farm-hani-watering-motion
-
-                0.55s
-
-                ease-in-out
-
-                infinite
-
-                alternate;
-
-            }
-
-
-
-            @keyframes farm-hani-watering-motion {
-
-              from {
-
-                transform:
-
-                  translateY(0)
-
-                  rotate(0deg);
-
-              }
-
-
-
-              to {
-
-                transform:
-
-                  translateY(2px)
-
-                  rotate(-1deg);
-
-              }
-
-            }
-
-
-
-            /*
-              물주는 동안 버튼 시각 처리
-            */
-            .farm-v40-title button:disabled {
-
-              cursor: default;
-
-              opacity: 0.72;
 
             }
 
