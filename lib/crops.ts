@@ -21,7 +21,7 @@ export const crops: CropDefinition[] = [
     emoji: "🥕",
     difficulty: "쉬움",
     totalWater: 300,
-    growthCount: 5,
+    growthCount: 10,
     rewardName: "당근 1kg",
     unlockText: "처음부터 선택 가능",
     accent: "#ff8b32",

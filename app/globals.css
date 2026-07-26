@@ -1297,13 +1297,13 @@ button{cursor:pointer}
 
   position:absolute;
 
-  left:50%;
+  left:51%;
 
-  bottom:215px;
+  bottom:100px;
 
   width:50px;
 
-  height:50px;
+  height:30px;
 
   transform:translateX(-50%);
 
@@ -1319,9 +1319,9 @@ button{cursor:pointer}
 
   position:absolute;
 
-  left:50%;
+  left:65%;
 
-  bottom:0;
+  bottom:-14px;
 
   width:140px;
 
@@ -1352,46 +1352,9 @@ button{cursor:pointer}
 
 }
 
-
-
-
-
-/* 성장 단계 */
-
-.farm-v40-crop.stage-1 img{
-
-  transform:scale(.35);
-
+.farm-v40-crop img{
+  transform:none !important;
 }
-
-
-.farm-v40-crop.stage-2 img{
-
-  transform:scale(.5);
-
-}
-
-
-.farm-v40-crop.stage-3 img{
-
-  transform:scale(.65);
-
-}
-
-
-.farm-v40-crop.stage-4 img{
-
-  transform:scale(.82);
-
-}
-
-
-.farm-v40-crop.stage-5 img{
-
-  transform:scale(1);
-
-}
-
 
 
 
@@ -1401,25 +1364,6 @@ button{cursor:pointer}
    CHARACTER PLACE
    ========================= */
 
-
-.farm-hani{
-
-  position:absolute;
-
-  left:20px;
-
-  bottom:60px;
-
-  z-index:15;
-
-}
-
-
-.farm-hani img{
-
-  width:110px;
-
-}
 
 
 
@@ -1691,4 +1635,144 @@ button{cursor:pointer}
 }
 
 
+}
+
+.farm-v40-crop img{
+  width:220px;
+  height:220px;
+  object-fit:contain;
+  display:block;
+  transform:none !important;
+}
+.farm-hani{
+  position:absolute;
+  right:22px;
+  left:auto;
+  bottom:5px;
+  z-index:50;
+  pointer-events:none;
+}
+
+.farm-hani img{
+  width:165px;
+  height:auto;
+  display:block;
+  transform:none;
+}
+.farm-hani.watering{
+  left:-170px;
+  bottom:5px;
+}
+
+.farm-hani.watering img{
+  width:230px;
+  height:auto;
+  display:block;
+}
+.farm-water-effect{
+  position:absolute;
+
+  left:25%;
+  bottom:125px;
+
+  width:170px;
+  height:180px;
+
+  transform:translateX(-50%);
+
+  pointer-events:none;
+
+  z-index:60;
+}
+
+.farm-water-effect img{
+  position:absolute;
+
+  width:34px;
+  height:auto;
+
+  opacity:0;
+
+  filter:
+    drop-shadow(0 0 5px rgba(64, 174, 255, 0.8))
+    drop-shadow(0 0 10px rgba(64, 174, 255, 0.5));
+
+  animation:
+    farm-water-drop 1.05s ease-in forwards;
+}
+
+/* 물방울별 위치와 시간차 */
+
+.farm-water-effect img:nth-child(1){
+  left:5px;
+  top:0;
+
+  width:28px;
+
+  animation-delay:0s;
+}
+
+.farm-water-effect img:nth-child(2){
+  left:38px;
+  top:-10px;
+
+  width:38px;
+
+  animation-delay:0.08s;
+}
+
+.farm-water-effect img:nth-child(3){
+  left:75px;
+  top:5px;
+
+  width:30px;
+
+  animation-delay:0.16s;
+}
+
+.farm-water-effect img:nth-child(4){
+  left:105px;
+  top:-5px;
+
+  width:36px;
+
+  animation-delay:0.24s;
+}
+
+.farm-water-effect img:nth-child(5){
+  left:135px;
+  top:8px;
+
+  width:26px;
+
+  animation-delay:0.32s;
+}
+
+@keyframes farm-water-drop{
+
+  0%{
+    opacity:0;
+
+    transform:
+      translate3d(-30px, -60px, 0)
+      scale(0.65)
+      rotate(-10deg);
+  }
+
+  15%{
+    opacity:1;
+  }
+
+  65%{
+    opacity:1;
+  }
+
+  100%{
+    opacity:0;
+
+    transform:
+      translate3d(10px, 135px, 0)
+      scale(1.05)
+      rotate(8deg);
+  }
 }
