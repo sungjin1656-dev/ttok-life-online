@@ -21,14 +21,12 @@ export default function WalkPage() {
   const { game, addSteps } = useGame();
 
   /*
-    테스트 버전에서는 true였지만,
-    실제 버전에서는 사용자가 버튼을 눌러 산책을 시작합니다.
+    사용자가 버튼을 눌렀을 때 산책을 시작합니다.
   */
   const [walking, setWalking] = useState(false);
 
   /*
     오늘 저장된 걸음 수부터 시작합니다.
-    저장된 값이 없으면 0으로 시작합니다.
   */
   const [sessionSteps, setSessionSteps] = useState(
     game.todaySteps || 0
@@ -42,11 +40,19 @@ export default function WalkPage() {
   );
 
   /*
-    걸음 감지에 사용하는 값입니다.
+    걸음 감지에 사용하는 센서 값입니다.
   */
   const lastStepAt = useRef(0);
-  const previousSignal = useRef(0);
   const filteredSignal = useRef(0);
+  const sensorReady = useRef(false);
+  const stepArmed = useRef(true);
+
+  /*
+    축별 중력 기준값입니다.
+  */
+  const gravityX = useRef(0);
+  const gravityY = useRef(0);
+  const gravityZ = useRef(0);
 
   /*
     산책 중인 시간만 증가시킵니다.
@@ -70,11 +76,26 @@ export default function WalkPage() {
 
   /*
     휴대폰 움직임 센서로 걸음을 감지합니다.
+
+    STEP_THRESHOLD:
+    이 값보다 움직임이 커지면 걸음 후보입니다.
+
+    RESET_THRESHOLD:
+    움직임이 다시 이 값 아래로 내려와야
+    다음 걸음을 받을 준비를 합니다.
+
+    MIN_STEP_INTERVAL:
+    너무 짧은 간격의 중복 감지를 막습니다.
   */
   useEffect(() => {
     if (!walking) {
       return;
     }
+
+    const STEP_THRESHOLD = 1.35;
+    const RESET_THRESHOLD = 0.65;
+    const MIN_STEP_INTERVAL = 360;
+    const MAX_VALID_MOTION = 8;
 
     const handleMotion = (event: DeviceMotionEvent) => {
       const acceleration =
@@ -91,49 +112,105 @@ export default function WalkPage() {
       const { x, y, z } = acceleration;
 
       /*
-        휴대폰 방향과 관계없이 전체 움직임 크기를 계산합니다.
+        센서를 처음 받았을 때 현재 값을
+        중력 기준값으로 저장합니다.
+
+        시작 버튼을 누르는 순간 발생하는 진동이
+        걸음으로 인식되는 것을 방지합니다.
       */
-      const magnitude = Math.sqrt(
-        x * x + y * y + z * z
+      if (!sensorReady.current) {
+        gravityX.current = x;
+        gravityY.current = y;
+        gravityZ.current = z;
+
+        filteredSignal.current = 0;
+        stepArmed.current = true;
+        sensorReady.current = true;
+
+        return;
+      }
+
+      /*
+        휴대폰 방향이 조금씩 바뀌어도 대응할 수 있도록
+        중력 기준값을 천천히 갱신합니다.
+      */
+      const gravityFilter = 0.92;
+
+      gravityX.current =
+        gravityX.current * gravityFilter +
+        x * (1 - gravityFilter);
+
+      gravityY.current =
+        gravityY.current * gravityFilter +
+        y * (1 - gravityFilter);
+
+      gravityZ.current =
+        gravityZ.current * gravityFilter +
+        z * (1 - gravityFilter);
+
+      /*
+        센서값에서 중력을 제거합니다.
+      */
+      const linearX = x - gravityX.current;
+      const linearY = y - gravityY.current;
+      const linearZ = z - gravityZ.current;
+
+      /*
+        휴대폰 방향과 관계없이 움직임 크기를 계산합니다.
+      */
+      const rawMotion = Math.sqrt(
+        linearX * linearX +
+          linearY * linearY +
+          linearZ * linearZ
       );
 
       /*
-        중력값 약 9.81을 제외한 움직임 강도입니다.
+        너무 강한 충격이나 휴대폰 흔들기는
+        정상적인 걸음으로 인정하지 않습니다.
       */
-      const motion = Math.abs(magnitude - 9.81);
+      if (rawMotion > MAX_VALID_MOTION) {
+        stepArmed.current = false;
+        filteredSignal.current = 0;
+
+        return;
+      }
 
       /*
-        센서의 순간적인 흔들림을 완화합니다.
+        센서의 순간적인 노이즈를 완화합니다.
       */
       filteredSignal.current =
-        filteredSignal.current * 0.78 +
-        motion * 0.22;
+        filteredSignal.current * 0.74 +
+        rawMotion * 0.26;
 
-      const currentSignal = filteredSignal.current;
-      const previous = previousSignal.current;
+      const signal = filteredSignal.current;
       const now = Date.now();
 
       /*
-        임계치를 아래에서 위로 통과할 때만
-        한 걸음으로 판단합니다.
+        움직임이 충분히 낮아지면
+        다음 걸음을 감지할 준비를 합니다.
       */
-      const crossedThreshold =
-        previous < 1.05 && currentSignal >= 1.05;
+      if (signal <= RESET_THRESHOLD) {
+        stepArmed.current = true;
+      }
+
+      const enoughTimePassed =
+        now - lastStepAt.current >= MIN_STEP_INTERVAL;
 
       /*
-        너무 빠른 흔들기를 걸음으로 중복 인식하지 않도록
-        최소 280ms 간격을 둡니다.
+        준비 상태에서 임계치를 넘고,
+        이전 걸음과 충분한 시간 간격이 있을 때만
+        한 걸음을 추가합니다.
       */
-      const enoughTimePassed =
-        now - lastStepAt.current >= 280;
-
-      if (crossedThreshold && enoughTimePassed) {
+      if (
+        stepArmed.current &&
+        signal >= STEP_THRESHOLD &&
+        enoughTimePassed
+      ) {
         lastStepAt.current = now;
+        stepArmed.current = false;
 
         setSessionSteps((steps) => steps + 1);
       }
-
-      previousSignal.current = currentSignal;
     };
 
     window.addEventListener(
@@ -150,6 +227,10 @@ export default function WalkPage() {
     };
   }, [walking]);
 
+  /*
+    걸음 수를 기준으로 칼로리와 물방울을 계산합니다.
+    칼로리값은 걸음 감지 속도에 영향을 주지 않습니다.
+  */
   const calories = Math.round(sessionSteps * 0.07);
   const water = Math.floor(sessionSteps / 10);
 
@@ -179,8 +260,11 @@ export default function WalkPage() {
       : "/assets/characters/boy-standing.png";
 
   /*
-    아이폰에서는 버튼을 누른 순간 센서 권한을 요청해야 합니다.
-    갤럭시는 권한 함수가 없으면 바로 시작합니다.
+    아이폰에서는 버튼을 누른 순간
+    센서 권한을 요청해야 합니다.
+
+    갤럭시는 별도 권한 함수가 없으면
+    바로 산책을 시작합니다.
   */
   const startWalking = async () => {
     setSensorError("");
@@ -190,6 +274,7 @@ export default function WalkPage() {
         setSensorError(
           "이 기기에서는 움직임 센서를 사용할 수 없습니다."
         );
+
         return;
       }
 
@@ -206,13 +291,23 @@ export default function WalkPage() {
           setSensorError(
             "산책을 시작하려면 동작 센서 권한이 필요합니다."
           );
+
           return;
         }
       }
 
+      /*
+        산책을 새로 시작하거나 다시 시작할 때
+        센서 상태를 초기화합니다.
+      */
       lastStepAt.current = 0;
-      previousSignal.current = 0;
       filteredSignal.current = 0;
+      sensorReady.current = false;
+      stepArmed.current = true;
+
+      gravityX.current = 0;
+      gravityY.current = 0;
+      gravityZ.current = 0;
 
       setWalking(true);
     } catch (error) {
@@ -227,6 +322,9 @@ export default function WalkPage() {
     }
   };
 
+  /*
+    산책 시작 또는 일시정지 버튼입니다.
+  */
   const toggleWalking = () => {
     if (walking) {
       setWalking(false);
@@ -236,6 +334,10 @@ export default function WalkPage() {
     void startWalking();
   };
 
+  /*
+    이번 산책에서 새로 추가된 걸음만
+    GameContext에 저장합니다.
+  */
   const finish = () => {
     const added = Math.max(
       0,
