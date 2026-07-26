@@ -100,7 +100,7 @@ export default function WalkPage() {
             <button className={`walk-pause-button ${walking ? "" : "paused"}`} onClick={() => setWalking((v) => !v)}>
               <span>{walking ? "Ⅱ" : "▶"}</span>
             </button>
-            <strong>{walking ? "일시 정지" : "다시 시작"}</strong>
+
           </section>
 
           <BottomNav />

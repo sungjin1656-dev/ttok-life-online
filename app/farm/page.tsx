@@ -95,12 +95,12 @@ function getPotImage(stage: number) {
 export default function FarmPage() {
 
 
-  const router = useRouter();
+ const router = useRouter();
 
-
-  const [isWatering, setIsWatering] = useState(false);
-
-  const [showWaterEffect, setShowWaterEffect] = useState(false);
+const [isWatering, setIsWatering] = useState(false);
+const [showWaterEffect, setShowWaterEffect] = useState(false);
+const [isCropPopping, setIsCropPopping] = useState(false);
+const [showCompleteEffect, setShowCompleteEffect] = useState(false);
 const [haniAssetsReady, setHaniAssetsReady] = useState(false);
 
 useEffect(() => {
@@ -144,48 +144,23 @@ useEffect(() => {
   };
 }, []);
 
+const {
+  game,
+  patchGame,
+} = useGame();
 
-  const {
+const crop = getCrop(game.currentCropId);
 
-    game,
+const cost = wateringCost(crop);
 
-    patchGame
+const waterings = game.cropWaterings ?? 0;
 
-  } = useGame();
-
-
-
-
-
-  const crop = getCrop(
-
-    game.currentCropId
-
-  );
-
-
-
-  const cost = wateringCost(crop);
-
-
-
-  const waterings =
-
-    game.cropWaterings ?? 0;
-
-
-
-  const growth = Math.min(
-
-    100,
-
-    Math.round(
-
-      (waterings / crop.growthCount) * 100
-
-    )
-
-  );
+const growth = Math.min(
+  100,
+  Math.round(
+    (waterings / crop.growthCount) * 100
+  )
+);
 
 
 
@@ -239,37 +214,56 @@ useEffect(() => {
     */
     window.setTimeout(() => {
 
-      patchGame({
+  // 화분 POP 시작
+  setIsCropPopping(true);
 
+  patchGame({
 
-        water: 99999,
+    water: 99999,
 
+    cropWaterings: next,
 
-        cropWaterings: next,
+    cropGrowth:
+      Math.round(
+        (next / crop.growthCount) * 100
+      ),
 
+    cropName:
+      crop.name,
 
-        cropGrowth:
+    cropEmoji:
+      crop.emoji
 
-          Math.round(
+  });
 
-            (next / crop.growthCount) * 100
+  /*
+    마지막 물주기로 100%가 되었을 때만
+    완성 반짝임과 안내 문구 표시
+  */
+  if (next >= crop.growthCount) {
 
-          ),
+    window.setTimeout(() => {
 
+      setShowCompleteEffect(true);
 
-        cropName:
+    }, 250);
 
-          crop.name,
+    window.setTimeout(() => {
 
+      setShowCompleteEffect(false);
 
-        cropEmoji:
+    }, 2200);
 
-          crop.emoji
+  }
 
+  // POP 종료
+  window.setTimeout(() => {
 
-      });
+    setIsCropPopping(false);
 
-    }, 650);
+  }, 500);
+
+}, 650);
 
 
 
@@ -518,9 +512,11 @@ useEffect(() => {
 
            <div className="farm-v40-field">
 
-  <div
-    className={`farm-v40-crop stage-${stage}`}
-  >
+ <div
+  className={`farm-v40-crop stage-${stage} ${
+    isCropPopping ? "crop-pop" : ""
+  }`}
+>
 
     <img
       src={getPotImage(stage)}
@@ -528,6 +524,46 @@ useEffect(() => {
     />
 
   </div>
+
+  {/* 100% COMPLETE EFFECT */}
+
+  {
+    showCompleteEffect && (
+
+      <div
+        className="farm-complete-effect"
+        aria-live="polite"
+      >
+
+        <div
+          className="farm-complete-sparkles"
+          aria-hidden="true"
+        >
+
+          <span>✨</span>
+          <span>✨</span>
+          <span>✨</span>
+          <span>✨</span>
+          <span>✨</span>
+
+        </div>
+
+        <div className="farm-complete-message">
+
+          <strong>
+            행운의 화분 완성!
+          </strong>
+
+          <span>
+            수확 보상을 받아보세요
+          </span>
+
+        </div>
+
+      </div>
+
+    )
+  }
 
   {/* WATER DROP EFFECT */}
 
