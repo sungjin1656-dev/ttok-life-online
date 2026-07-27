@@ -92,7 +92,7 @@ export default function WalkPage() {
       return;
     }
 
-    const STEP_THRESHOLD = 1.35;
+    const STEP_THRESHOLD = 1.2;
     const RESET_THRESHOLD = 0.65;
     const MIN_STEP_INTERVAL = 360;
     const MAX_VALID_MOTION = 8;
