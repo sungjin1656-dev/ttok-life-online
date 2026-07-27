@@ -49,6 +49,20 @@ type LegacyRuntime = {
   recentSteps: number[];
 };
 
+type GaitMode =
+  | "대기"
+  | "걷기"
+  | "빠른 걷기"
+  | "조깅"
+  | "달리기";
+
+type AdaptiveTuning = {
+  stepThreshold: number;
+  resetThreshold: number;
+  minStepInterval: number;
+  filterRatio: number;
+};
+
 type RhythmRuntime = {
   steps: number;
   candidates: number;
@@ -59,8 +73,15 @@ type RhythmRuntime = {
   gravityMagnitude: number;
   initialized: boolean;
   peakArmed: boolean;
+  peakArmedAt: number;
   walkingConfirmed: boolean;
   candidateTimes: number[];
+  intervalHistory: number[];
+  gait: GaitMode;
+  effectiveStepThreshold: number;
+  effectiveResetThreshold: number;
+  effectiveMinStepInterval: number;
+  effectiveFilterRatio: number;
   shakeHits: number[];
   highImpactActive: boolean;
   shakeLockUntil: number;
@@ -79,6 +100,11 @@ type EngineView = {
   interval: number;
   cadence: number;
   state: string;
+  gait: string;
+  effectiveStepThreshold: number;
+  effectiveResetThreshold: number;
+  effectiveMinStepInterval: number;
+  effectiveFilterRatio: number;
 };
 
 type Snapshot = {
@@ -100,9 +126,13 @@ type Outcome = {
 const STORAGE_KEY = "ttok-life-step-test-settings-v1";
 const UI_REFRESH_MS = 90;
 const MAX_VALID_MOTION = 8;
-const MAX_STEP_INTERVAL = 1200;
-const WALK_TIMEOUT = 1800;
-const SHAKE_LOCK_MS = 1400;
+const MAX_STEP_INTERVAL = 1300;
+const WALK_TIMEOUT = 2600;
+const SHAKE_LOCK_MS = 900;
+const ABSOLUTE_MIN_STEP_INTERVAL = 150;
+const RHYTHM_HARD_IMPACT = 22;
+const RHYTHM_PEAK_TIMEOUT = 720;
+const RHYTHM_HISTORY_SIZE = 8;
 
 const DEFAULT_SETTINGS: EngineSettings = {
   legacy: {
@@ -175,6 +205,113 @@ function round(value: number, digits = 2) {
   return Math.round(value * factor) / factor;
 }
 
+function median(values: number[]) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function classifyGait(intervals: number[]): GaitMode {
+  const recent = intervals.slice(-5);
+  const middle = median(recent);
+
+  if (!middle) return "대기";
+  if (middle <= 230) return "달리기";
+  if (middle <= 315) return "조깅";
+  if (middle <= 445) return "빠른 걷기";
+  return "걷기";
+}
+
+function getAdaptiveTuning(
+  gait: GaitMode,
+  settings: AlgorithmSettings,
+): AdaptiveTuning {
+  const profile =
+    gait === "달리기"
+      ? {
+          thresholdRatio: 0.8,
+          resetRatio: 1.35,
+          minInterval: 150,
+          filterFloor: 0.38,
+        }
+      : gait === "조깅"
+        ? {
+            thresholdRatio: 0.88,
+            resetRatio: 1.22,
+            minInterval: 205,
+            filterFloor: 0.34,
+          }
+        : gait === "빠른 걷기"
+          ? {
+              thresholdRatio: 0.95,
+              resetRatio: 1.1,
+              minInterval: 280,
+              filterFloor: 0.3,
+            }
+          : {
+              thresholdRatio: 1,
+              resetRatio: 1,
+              minInterval: settings.minStepInterval,
+              filterFloor: settings.filterRatio,
+            };
+
+  const stepThreshold = round(
+    clamp(settings.stepThreshold * profile.thresholdRatio, 0.3, 3),
+  );
+  const resetThreshold = round(
+    clamp(
+      settings.resetThreshold * profile.resetRatio,
+      0.05,
+      Math.max(0.05, stepThreshold - 0.05),
+    ),
+  );
+
+  return {
+    stepThreshold,
+    resetThreshold,
+    minStepInterval: Math.round(
+      clamp(
+        Math.min(settings.minStepInterval, profile.minInterval),
+        ABSOLUTE_MIN_STEP_INTERVAL,
+        800,
+      ),
+    ),
+    filterRatio: round(
+      clamp(Math.max(settings.filterRatio, profile.filterFloor), 0.05, 0.8),
+    ),
+  };
+}
+
+function applyAdaptiveTuning(
+  runtime: RhythmRuntime,
+  settings: AlgorithmSettings,
+) {
+  const tuning = getAdaptiveTuning(runtime.gait, settings);
+  runtime.effectiveStepThreshold = tuning.stepThreshold;
+  runtime.effectiveResetThreshold = tuning.resetThreshold;
+  runtime.effectiveMinStepInterval = tuning.minStepInterval;
+  runtime.effectiveFilterRatio = tuning.filterRatio;
+  return tuning;
+}
+
+function isRhythmConsistent(intervals: number[], gait: GaitMode) {
+  if (intervals.length < 2) return false;
+  const middle = median(intervals);
+  const tolerance =
+    gait === "달리기"
+      ? Math.max(55, middle * 0.34)
+      : gait === "조깅"
+        ? Math.max(70, middle * 0.36)
+        : Math.max(95, middle * 0.42);
+
+  return intervals.every(
+    (interval) => Math.abs(interval - middle) <= tolerance,
+  );
+}
+
 function signalText(value: number) {
   return Number.isFinite(value) ? value.toFixed(3) : "0.000";
 }
@@ -201,7 +338,7 @@ function logClock(timestamp: number) {
 }
 
 function engineName(engine: Engine) {
-  return engine === "legacy" ? "기존 알고리즘" : "신규 리듬 알고리즘";
+  return engine === "legacy" ? "기존 알고리즘" : "신규 적응형 알고리즘 V2";
 }
 
 function createLegacy(steps = 0): LegacyRuntime {
@@ -224,7 +361,12 @@ function createLegacy(steps = 0): LegacyRuntime {
   };
 }
 
-function createRhythm(steps = 0): RhythmRuntime {
+function createRhythm(
+  steps = 0,
+  settings: AlgorithmSettings = DEFAULT_SETTINGS.rhythm,
+): RhythmRuntime {
+  const tuning = getAdaptiveTuning("대기", settings);
+
   return {
     steps,
     candidates: 0,
@@ -235,8 +377,15 @@ function createRhythm(steps = 0): RhythmRuntime {
     gravityMagnitude: 9.81,
     initialized: false,
     peakArmed: false,
+    peakArmedAt: 0,
     walkingConfirmed: false,
     candidateTimes: [],
+    intervalHistory: [],
+    gait: "대기",
+    effectiveStepThreshold: tuning.stepThreshold,
+    effectiveResetThreshold: tuning.resetThreshold,
+    effectiveMinStepInterval: tuning.minStepInterval,
+    effectiveFilterRatio: tuning.filterRatio,
     shakeHits: [],
     highImpactActive: false,
     shakeLockUntil: 0,
@@ -256,8 +405,11 @@ function resetLegacySignal(runtime: LegacyRuntime) {
   return next;
 }
 
-function resetRhythmSignal(runtime: RhythmRuntime) {
-  const next = createRhythm(runtime.steps);
+function resetRhythmSignal(
+  runtime: RhythmRuntime,
+  settings: AlgorithmSettings = DEFAULT_SETTINGS.rhythm,
+) {
+  const next = createRhythm(runtime.steps, settings);
   next.candidates = runtime.candidates;
   next.rejected = runtime.rejected;
   next.lastStepAt = runtime.lastStepAt;
@@ -342,52 +494,100 @@ function confirmRhythmCandidate(
   settings: AlgorithmSettings,
 ): Outcome {
   const previousCandidate = runtime.candidateTimes.at(-1) ?? 0;
+  const previousGait = runtime.gait;
 
   if (previousCandidate) {
     const interval = now - previousCandidate;
 
-    if (interval < settings.minStepInterval) {
+    if (interval < ABSOLUTE_MIN_STEP_INTERVAL) {
       runtime.rejected += 1;
       runtime.candidateTimes = [now];
+      runtime.intervalHistory = [];
       runtime.walkingConfirmed = false;
-      return { counted: 0 };
+      runtime.gait = "대기";
+      applyAdaptiveTuning(runtime, settings);
+      return {
+        counted: 0,
+        message: "신규 V2: 150ms 미만 초고속 움직임 제외",
+      };
     }
 
     if (interval > MAX_STEP_INTERVAL) {
       runtime.candidateTimes = [now];
+      runtime.intervalHistory = [];
       runtime.walkingConfirmed = false;
-      return { counted: 0, message: "신규 엔진: 보행 리듬 재확인" };
+      runtime.gait = "대기";
+      applyAdaptiveTuning(runtime, settings);
+      return { counted: 0, message: "신규 V2: 활동 리듬 재확인" };
+    }
+
+    runtime.intervalHistory.push(interval);
+    if (runtime.intervalHistory.length > RHYTHM_HISTORY_SIZE) {
+      runtime.intervalHistory.shift();
+    }
+
+    runtime.gait = classifyGait(runtime.intervalHistory);
+    const tuning = applyAdaptiveTuning(runtime, settings);
+
+    if (interval < tuning.minStepInterval) {
+      runtime.rejected += 1;
+      runtime.candidateTimes = [now];
+      runtime.intervalHistory = [];
+      runtime.walkingConfirmed = false;
+      runtime.gait = "대기";
+      applyAdaptiveTuning(runtime, settings);
+      return { counted: 0, message: "신규 V2: 활동별 최소 간격 미달" };
     }
   }
 
   runtime.candidateTimes.push(now);
-  if (runtime.candidateTimes.length > 4) runtime.candidateTimes.shift();
+  if (runtime.candidateTimes.length > RHYTHM_HISTORY_SIZE + 1) {
+    runtime.candidateTimes.shift();
+  }
 
   if (!runtime.walkingConfirmed) {
-    if (runtime.candidateTimes.length < 3) return { counted: 0 };
-
-    const recent = runtime.candidateTimes.slice(-3);
-    const intervalA = recent[1] - recent[0];
-    const intervalB = recent[2] - recent[1];
-    const validA =
-      intervalA >= settings.minStepInterval && intervalA <= MAX_STEP_INTERVAL;
-    const validB =
-      intervalB >= settings.minStepInterval && intervalB <= MAX_STEP_INTERVAL;
-
-    if (!validA || !validB) {
-      runtime.candidateTimes = [now];
-      return { counted: 0 };
+    if (runtime.candidateTimes.length < 3) {
+      return {
+        counted: 0,
+        message:
+          previousGait !== runtime.gait && runtime.gait !== "대기"
+            ? `신규 V2: ${runtime.gait} 후보 감지`
+            : undefined,
+      };
     }
 
+    const recentTimes = runtime.candidateTimes.slice(-3);
+    const recentIntervals = [
+      recentTimes[1] - recentTimes[0],
+      recentTimes[2] - recentTimes[1],
+    ];
+    const gait = classifyGait(recentIntervals);
+    const tuning = getAdaptiveTuning(gait, settings);
+    const validIntervals = recentIntervals.every(
+      (interval) =>
+        interval >= tuning.minStepInterval &&
+        interval <= MAX_STEP_INTERVAL,
+    );
+
+    if (!validIntervals || !isRhythmConsistent(recentIntervals, gait)) {
+      runtime.rejected += 1;
+      runtime.candidateTimes = runtime.candidateTimes.slice(-2);
+      runtime.intervalHistory = runtime.intervalHistory.slice(-1);
+      runtime.walkingConfirmed = false;
+      return { counted: 0, message: "신규 V2: 불규칙 리듬 제외" };
+    }
+
+    runtime.gait = gait;
+    applyAdaptiveTuning(runtime, settings);
     runtime.walkingConfirmed = true;
     runtime.steps += 3;
-    runtime.previousStepAt = recent[1];
-    runtime.lastStepAt = recent[2];
-    runtime.recentSteps.push(...recent);
+    runtime.previousStepAt = recentTimes[1];
+    runtime.lastStepAt = recentTimes[2];
+    runtime.recentSteps.push(...recentTimes);
 
     return {
       counted: 3,
-      message: "신규 엔진: 3회 연속 리듬 확인 → 3걸음 반영",
+      message: `신규 V2: ${gait} 리듬 확인 → 3걸음 반영`,
     };
   }
 
@@ -395,7 +595,14 @@ function confirmRhythmCandidate(
   runtime.lastStepAt = now;
   runtime.steps += 1;
   runtime.recentSteps.push(now);
-  return { counted: 1 };
+
+  return {
+    counted: 1,
+    message:
+      previousGait !== runtime.gait
+        ? `신규 V2: ${runtime.gait} 모드로 자동 전환`
+        : undefined,
+  };
 }
 
 function processRhythm(
@@ -407,19 +614,24 @@ function processRhythm(
   if (!runtime.initialized) {
     runtime.gravityMagnitude = magnitude || 9.81;
     runtime.initialized = true;
+    applyAdaptiveTuning(runtime, settings);
     return { counted: 0 };
   }
 
   if (
-    runtime.walkingConfirmed &&
     runtime.lastStepAt &&
     now - runtime.lastStepAt > WALK_TIMEOUT
   ) {
     runtime.walkingConfirmed = false;
     runtime.candidateTimes = [];
+    runtime.intervalHistory = [];
+    runtime.gait = "대기";
+    runtime.peakArmed = false;
+    runtime.peakArmedAt = 0;
   }
 
-  const gravityFollowRatio = 0.08;
+  const tuning = applyAdaptiveTuning(runtime, settings);
+  const gravityFollowRatio = runtime.gait === "달리기" ? 0.045 : 0.065;
   runtime.gravityMagnitude =
     runtime.gravityMagnitude * (1 - gravityFollowRatio) +
     magnitude * gravityFollowRatio;
@@ -428,63 +640,100 @@ function processRhythm(
   runtime.raw = raw;
   runtime.previousFiltered = runtime.filtered;
   runtime.filtered =
-    runtime.filtered * (1 - settings.filterRatio) +
-    raw * settings.filterRatio;
+    runtime.filtered * (1 - tuning.filterRatio) +
+    raw * tuning.filterRatio;
 
   if (now < runtime.shakeLockUntil) return { counted: 0 };
 
   const absoluteRaw = Math.abs(raw);
   const absoluteFiltered = Math.abs(runtime.filtered);
 
-  if (absoluteRaw > MAX_VALID_MOTION) {
+  if (absoluteRaw > RHYTHM_HARD_IMPACT) {
     runtime.rejected += 1;
     runtime.shakeLockUntil = now + SHAKE_LOCK_MS;
     runtime.shakeHits = [];
     runtime.highImpactActive = false;
     runtime.candidateTimes = [];
+    runtime.intervalHistory = [];
     runtime.walkingConfirmed = false;
+    runtime.gait = "대기";
     runtime.peakArmed = false;
-    return { counted: 0, message: "신규 엔진: 강한 충격 잠금" };
+    runtime.peakArmedAt = 0;
+    applyAdaptiveTuning(runtime, settings);
+    return { counted: 0, message: "신규 V2: 비정상 강한 충격 잠금" };
   }
 
-  const shakeThreshold = Math.max(3.6, settings.stepThreshold * 2.8);
+  const shakeThreshold = Math.max(
+    5.2,
+    tuning.stepThreshold * (runtime.gait === "달리기" ? 4.4 : 3.8),
+  );
+
   if (absoluteFiltered > shakeThreshold && !runtime.highImpactActive) {
     runtime.highImpactActive = true;
     runtime.shakeHits.push(now);
     runtime.shakeHits = runtime.shakeHits.filter(
-      (time) => now - time <= 850,
+      (time) => now - time <= 900,
     );
 
-    if (runtime.shakeHits.length >= 3) {
-      runtime.rejected += 1;
-      runtime.shakeLockUntil = now + SHAKE_LOCK_MS;
-      runtime.shakeHits = [];
-      runtime.highImpactActive = false;
-      runtime.candidateTimes = [];
-      runtime.walkingConfirmed = false;
-      runtime.peakArmed = false;
-      return { counted: 0, message: "신규 엔진: 연속 흔들기 잠금" };
+    if (runtime.shakeHits.length >= 4) {
+      const shakeIntervals = runtime.shakeHits
+        .slice(-4)
+        .map((time, index, values) =>
+          index ? time - values[index - 1] : 0,
+        )
+        .slice(1);
+      const middle = median(shakeIntervals);
+      const spread =
+        Math.max(...shakeIntervals) - Math.min(...shakeIntervals);
+      const tooFast = middle < ABSOLUTE_MIN_STEP_INTERVAL;
+      const irregular = spread > Math.max(90, middle * 0.72);
+
+      if (tooFast || irregular) {
+        runtime.rejected += 1;
+        runtime.shakeLockUntil = now + SHAKE_LOCK_MS;
+        runtime.shakeHits = [];
+        runtime.highImpactActive = false;
+        runtime.candidateTimes = [];
+        runtime.intervalHistory = [];
+        runtime.walkingConfirmed = false;
+        runtime.gait = "대기";
+        runtime.peakArmed = false;
+        runtime.peakArmedAt = 0;
+        applyAdaptiveTuning(runtime, settings);
+        return { counted: 0, message: "신규 V2: 비보행 흔들기 잠금" };
+      }
     }
-  } else if (absoluteFiltered < shakeThreshold * 0.55) {
+  } else if (absoluteFiltered < shakeThreshold * 0.5) {
     runtime.highImpactActive = false;
     runtime.shakeHits = runtime.shakeHits.filter(
-      (time) => now - time <= 850,
+      (time) => now - time <= 900,
     );
-  }
-
-  if (
-    runtime.filtered >= settings.stepThreshold &&
-    runtime.previousFiltered < settings.stepThreshold
-  ) {
-    runtime.peakArmed = true;
   }
 
   if (
     runtime.peakArmed &&
-    runtime.filtered <= settings.resetThreshold &&
-    runtime.previousFiltered > settings.resetThreshold
+    runtime.peakArmedAt &&
+    now - runtime.peakArmedAt > RHYTHM_PEAK_TIMEOUT
   ) {
     runtime.peakArmed = false;
+    runtime.peakArmedAt = 0;
+  }
+
+  if (
+    runtime.filtered >= tuning.stepThreshold &&
+    runtime.previousFiltered < tuning.stepThreshold
+  ) {
+    runtime.peakArmed = true;
+    runtime.peakArmedAt = now;
+  }
+
+  if (
+    runtime.peakArmed &&
+    runtime.filtered <= tuning.resetThreshold &&
+    runtime.previousFiltered > tuning.resetThreshold
+  ) {
+    runtime.peakArmed = false;
+    runtime.peakArmedAt = 0;
     runtime.candidates += 1;
     return confirmRhythmCandidate(runtime, now, settings);
   }
@@ -503,6 +752,11 @@ function emptyView(): EngineView {
     interval: 0,
     cadence: 0,
     state: "대기 중",
+    gait: "대기",
+    effectiveStepThreshold: 0,
+    effectiveResetThreshold: 0,
+    effectiveMinStepInterval: 0,
+    effectiveFilterRatio: 0,
   };
 }
 
@@ -632,9 +886,9 @@ export default function StepTestPage() {
       ? now < rhythm.shakeLockUntil
         ? "흔들기 잠금"
         : rhythm.walkingConfirmed
-          ? "보행 리듬 확인"
+          ? `${rhythm.gait} · 리듬 감지 중`
           : rhythm.candidateTimes.length
-            ? `리듬 확인 ${Math.min(
+            ? `활동 판별 ${Math.min(
                 3,
                 rhythm.candidateTimes.length,
               )}/3`
@@ -657,6 +911,15 @@ export default function StepTestPage() {
             : 0,
         cadence: legacy.recentSteps.length,
         state: legacyState,
+        gait: "기준 엔진",
+        effectiveStepThreshold:
+          settingsRef.current.legacy.stepThreshold,
+        effectiveResetThreshold:
+          settingsRef.current.legacy.resetThreshold,
+        effectiveMinStepInterval:
+          settingsRef.current.legacy.minStepInterval,
+        effectiveFilterRatio:
+          settingsRef.current.legacy.filterRatio,
       },
       rhythm: {
         steps: rhythm.steps,
@@ -671,6 +934,11 @@ export default function StepTestPage() {
             : 0,
         cadence: rhythm.recentSteps.length,
         state: rhythmState,
+        gait: rhythm.gait,
+        effectiveStepThreshold: rhythm.effectiveStepThreshold,
+        effectiveResetThreshold: rhythm.effectiveResetThreshold,
+        effectiveMinStepInterval: rhythm.effectiveMinStepInterval,
+        effectiveFilterRatio: rhythm.effectiveFilterRatio,
       },
     };
   }, []);
@@ -801,7 +1069,10 @@ export default function StepTestPage() {
       }
 
       legacyRef.current = resetLegacySignal(legacyRef.current);
-      rhythmRef.current = resetRhythmSignal(rhythmRef.current);
+      rhythmRef.current = resetRhythmSignal(
+        rhythmRef.current,
+        settingsRef.current.rhythm,
+      );
 
       window.addEventListener("devicemotion", handleMotion, {
         passive: true,
@@ -840,7 +1111,7 @@ export default function StepTestPage() {
   const resetTest = useCallback(
     (target = targetSteps) => {
       legacyRef.current = createLegacy();
-      rhythmRef.current = createRhythm();
+      rhythmRef.current = createRhythm(0, settingsRef.current.rhythm);
       eventCountRef.current = 0;
       sensorRef.current = {
         x: 0,
@@ -910,7 +1181,10 @@ export default function StepTestPage() {
       if (activeEngine === "legacy") {
         legacyRef.current = resetLegacySignal(legacyRef.current);
       } else {
-        rhythmRef.current = resetRhythmSignal(rhythmRef.current);
+        rhythmRef.current = resetRhythmSignal(
+          rhythmRef.current,
+          settingsRef.current.rhythm,
+        );
       }
 
       refresh(true);
@@ -930,7 +1204,10 @@ export default function StepTestPage() {
     if (activeEngine === "legacy") {
       legacyRef.current = resetLegacySignal(legacyRef.current);
     } else {
-      rhythmRef.current = resetRhythmSignal(rhythmRef.current);
+      rhythmRef.current = resetRhythmSignal(
+        rhythmRef.current,
+        settingsRef.current.rhythm,
+      );
     }
 
     refresh(true);
@@ -939,7 +1216,7 @@ export default function StepTestPage() {
 
   const copyResult = useCallback(async () => {
     const result = {
-      test: "TTOK LIFE STEP TEST V1",
+      test: "TTOK LIFE STEP TEST V2",
       targetSteps,
       startedAt: startedAt
         ? new Date(startedAt).toISOString()
@@ -963,6 +1240,13 @@ export default function StepTestPage() {
           rejected: snapshot.rhythm.rejected,
           interval: snapshot.rhythm.interval,
           cadence: snapshot.rhythm.cadence,
+          gait: snapshot.rhythm.gait,
+          effectiveTuning: {
+            stepThreshold: snapshot.rhythm.effectiveStepThreshold,
+            resetThreshold: snapshot.rhythm.effectiveResetThreshold,
+            minStepInterval: snapshot.rhythm.effectiveMinStepInterval,
+            filterRatio: snapshot.rhythm.effectiveFilterRatio,
+          },
         },
       },
       sensorEvents: snapshot.events,
@@ -1066,6 +1350,8 @@ export default function StepTestPage() {
 
   const activeSettings = settings[activeEngine];
   const activeView = snapshot[activeEngine];
+  const activeStepThreshold =
+    activeView.effectiveStepThreshold || activeSettings.stepThreshold;
   const activeDifference = activeView.steps - targetSteps;
   const activeAccuracy = useMemo(() => {
     if (!targetSteps) return 0;
@@ -1205,7 +1491,7 @@ export default function StepTestPage() {
               onClick={() => setActiveEngine("rhythm")}
             >
               <strong>신규</strong>
-              3회 리듬 확인 방식
+              걷기·달리기 자동 판별 V2
             </button>
           </div>
 
@@ -1272,8 +1558,8 @@ export default function StepTestPage() {
             difference={snapshot.legacy.steps - targetSteps}
           />
           <CompareCard
-            title="신규 리듬 알고리즘"
-            code="RHYTHM"
+            title="신규 적응형 알고리즘 V2"
+            code="RHYTHM V2"
             selected={activeEngine === "rhythm"}
             view={snapshot.rhythm}
             difference={snapshot.rhythm.steps - targetSteps}
@@ -1314,6 +1600,26 @@ export default function StepTestPage() {
               label="마지막 감지시간"
               value={clockText(activeView.lastStepAt)}
             />
+            <MetricRow
+              label="자동 활동 판별"
+              value={
+                activeEngine === "rhythm"
+                  ? activeView.gait
+                  : "사용 안 함"
+              }
+            />
+            <MetricRow
+              label="실효 최소 간격"
+              value={`${activeView.effectiveMinStepInterval}ms`}
+            />
+            <MetricRow
+              label="실효 STEP_THRESHOLD"
+              value={activeView.effectiveStepThreshold.toFixed(2)}
+            />
+            <MetricRow
+              label="실효 FILTER_RATIO"
+              value={activeView.effectiveFilterRatio.toFixed(2)}
+            />
           </div>
 
           <div className={styles.meter} aria-hidden="true">
@@ -1324,7 +1630,7 @@ export default function StepTestPage() {
                   (Math.abs(activeView.filtered) /
                     Math.max(
                       0.1,
-                      activeSettings.stepThreshold * 1.8,
+                      activeStepThreshold * 1.8,
                     )) *
                     100,
                 )}%`,
@@ -1334,10 +1640,10 @@ export default function StepTestPage() {
               style={{
                 left: `${Math.min(
                   96,
-                  (activeSettings.stepThreshold /
+                  (activeStepThreshold /
                     Math.max(
                       0.1,
-                      activeSettings.stepThreshold * 1.8,
+                      activeStepThreshold * 1.8,
                     )) *
                     100,
                 )}%`,
@@ -1425,8 +1731,9 @@ export default function StepTestPage() {
 
           <p className={styles.note}>
             값 변경 즉시 현재 엔진의 필터 상태만 초기화되고 감지
-            걸음 수는 유지됩니다. RESET_THRESHOLD는
-            STEP_THRESHOLD보다 낮게 자동 제한됩니다.
+            걸음 수는 유지됩니다. 신규 V2에서는 입력값을 걷기 기준값으로
+            사용하고 활동 판별 결과에 따라 실효값을 자동 보정합니다.
+            RESET_THRESHOLD는 STEP_THRESHOLD보다 낮게 자동 제한됩니다.
           </p>
         </section>
 
@@ -1468,16 +1775,16 @@ export default function StepTestPage() {
             현재 산책 페이지와 비교하기 위한 기준 엔진입니다.
           </p>
           <p>
-            <strong>신규 리듬 알고리즘</strong>은 상승과 하강이
-            끝난 움직임을 후보로 만들고 자연스러운 간격의 후보가
-            3회 연속 확인되면 3걸음을 소급 반영합니다. 이후 리듬이
-            유지되는 동안 1걸음씩 반영하고 빠른 흔들기와 강한
-            충격은 잠시 잠급니다.
+            <strong>신규 적응형 알고리즘 V2</strong>는 상승과 하강이
+            끝난 움직임을 후보로 만들고 최근 간격의 중앙값으로
+            걷기·빠른 걷기·조깅·달리기를 자동 판별합니다. 판별된
+            활동에 따라 최소 간격, 임계값, 리셋값, 필터 비율을
+            자동 보정하며 3회 연속 리듬 확인 방식은 그대로 유지합니다.
           </p>
         </details>
 
         <footer className={styles.footer}>
-          TTOK LIFE STEP TEST V1 · 독립 테스트 페이지
+          TTOK LIFE STEP TEST V2 · 독립 테스트 페이지
           <br />
           GameContext와 app/walk/page.tsx의 값을 읽거나 변경하지
           않습니다.
