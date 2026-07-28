@@ -84,7 +84,7 @@ export default function WalkPage() {
   */
   const [seconds, setSeconds] =
     useState(0);
-
+const [flyFrame, setFlyFrame] = useState(1);
 
   /*
     오류 표시
@@ -221,6 +221,36 @@ export default function WalkPage() {
   },[
     walking
   ]);
+
+
+// 비행 프레임 애니메이션
+
+
+// 여기에 추가
+
+
+useEffect(()=>{
+
+  if(!walking){
+    setFlyFrame(1);
+    return;
+  }
+
+  const flyTimer =
+    setInterval(()=>{
+
+      setFlyFrame(prev =>
+        prev >= 4 ? 1 : prev + 1
+      );
+
+    },180);
+
+
+  return ()=>{
+    clearInterval(flyTimer);
+  };
+
+},[walking]);
     /*
     Android 현재 걸음값 저장
 
@@ -266,11 +296,11 @@ export default function WalkPage() {
 
 
   const femaleCharacterIds = [
-    "harin",
-    "hani",
-    "girl",
-    "female",
-  ];
+  "harin",
+  "hani",
+  "girl",
+  "female",
+];
 
 
 
@@ -282,14 +312,14 @@ export default function WalkPage() {
 
 
   const characterSrc =
-    walking
-      ? isFemaleCharacter
-        ? "/assets/characters/girl-running-clean.png"
-        : "/assets/characters/boy-running-clean.png"
+  walking
+    ? isFemaleCharacter
+      ? `/assets/characters/flying/girl_flying_0${flyFrame}.png`
+      : `/assets/characters/flying/boy_flying_0${flyFrame}.png`
 
-      : isFemaleCharacter
-        ? "/assets/characters/girl-standing.png"
-        : "/assets/characters/boy-standing.png";
+    : isFemaleCharacter
+      ? "/assets/characters/flying/girl_flying_idle.png"
+      : "/assets/characters/flying/boy_flying_idle.png";
 
 
 
@@ -449,32 +479,66 @@ const startWalking =
 
 
             <div
-              className={`walk-runner-wrap ${
-                walking
-                  ? "is-walking"
-                  : "is-paused"
-              }`}
-            >
+ className={`walk-runner-wrap ${
+ walking
+ ? "is-walking"
+ : "is-paused"
+ }`}
+>
 
-              <Image
+{/* 마법진 */}
+<Image
+ src="/assets/effects/magic-circle.png"
+ alt=""
+ width={240}
+ height={240}
+ className="magic-circle"
+/>
 
-                src={characterSrc}
 
-                alt={
-                  isFemaleCharacter
-                    ? "산책 중인 하니"
-                    : "산책 중인 캐릭터"
-                }
+{/* 비행 흔적 */}
+<Image
+ src="/assets/effects/magic-trail.png"
+ alt=""
+ width={260}
+ height={130}
+ className="magic-trail"
+/>
 
-                width={250}
 
-                height={390}
+{/* 캐릭터 */}
+<Image
+ src={characterSrc}
+ alt="마법 양탄자를 타고 이동하는 모험가"
+ width={350}
+ height={350}
+  className="runner-character"
+ priority
+/>
 
-                priority
 
-              />
+{/* 별빛 */}
+<Image
+ src="/assets/effects/sparkle.png"
+ alt=""
+ width={40}
+ height={40}
+ className="sparkle sparkle-one"
+/>
 
-            </div>
+<Image
+ src="/assets/effects/sparkle.png"
+ alt=""
+ width={32}
+ height={32}
+ className="sparkle sparkle-two"
+/>
+
+
+</div>
+
+
+            
 
 
           </div>
@@ -517,9 +581,14 @@ const startWalking =
 
               <article>
 
-                <span className="walk-mini-icon fire">
-                  🔥
-                </span>
+               <span className="walk-mini-icon fire">
+  <Image
+    src="/assets/icons/calorie.png"
+    alt="calorie"
+    width={32}
+    height={32}
+  />
+</span>
 
 
                 <div>
@@ -543,9 +612,16 @@ const startWalking =
 
               <article>
 
-                <span className="walk-mini-icon drop">
-                  💧
-                </span>
+              <span className="walk-mini-icon drop">
+
+  <Image
+    src="/assets/icons/droplet.png"
+    alt="droplet"
+    width={32}
+    height={32}
+  />
+
+</span>
 
 
                 <div>
@@ -570,8 +646,15 @@ const startWalking =
               <article>
 
                 <span className="walk-mini-icon clock">
-                  ◷
-                </span>
+
+  <Image
+    src="/assets/icons/time.png"
+    alt="time"
+    width={32}
+    height={32}
+  />
+
+</span>
 
 
                 <div>
@@ -621,8 +704,33 @@ const startWalking =
           <section className="walk-control-panel">
 
 
-            <button
+  <Image
+    src="/assets/effects/magic-circle.png"
+    alt=""
+    width={260}
+    height={260}
+    className="control-magic-circle"
+  />
 
+  <Image
+ src="/assets/effects/sparkle.png"
+ alt=""
+ width={36}
+ height={36}
+ className="control-sparkle left"
+/>
+
+
+<Image
+ src="/assets/effects/sparkle.png"
+ alt=""
+ width={36}
+ height={36}
+ className="control-sparkle right"
+/>
+
+
+  <button
               className={
                 `walk-pause-button ${
                   walking
@@ -643,16 +751,26 @@ const startWalking =
 
             >
 
-              <span>
+              <div className="magic-button-icon">
 
-                {
-                  walking
-                    ? "Ⅱ"
-                    : "▶"
-                }
+{
+  walking
+    ? "Ⅱ"
+    : "✨"
+}
 
-              </span>
+</div>
 
+
+<div className="magic-button-text">
+
+{
+  walking
+    ? "비행 중"
+    : "마법 비행"
+}
+
+</div>
 
             </button>
 

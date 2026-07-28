@@ -63,6 +63,16 @@ export default function OnboardingPage() {
     const id = params.get("member_id")?.trim() ?? "";
     const name = params.get("member_name")?.trim() ?? "";
 
+    const invite =
+  params.get("invite")?.trim() ?? "";
+
+if (invite) {
+  localStorage.setItem(
+    "ttok_invite_code",
+    invite
+  );
+}
+
     setMemberId(id);
     setMemberName(name);
 
@@ -158,20 +168,41 @@ export default function OnboardingPage() {
     }
   };
 
-  const startGame = () => {
-    const finalNickname =
-      savedNickname.trim() ||
-      nickname.trim() ||
-      game.nickname.trim();
+const startGame = () => {
 
-    patchGame({
-      characterId,
-      nickname: finalNickname,
-      onboardingComplete: true,
-    });
+  const finalNickname =
+    savedNickname.trim() ||
+    nickname.trim() ||
+    game.nickname.trim();
 
-    router.push("/home");
-  };
+
+
+  const inviteCode =
+    localStorage.getItem(
+      "ttok_invite_code"
+    ) ?? "";
+
+
+
+  patchGame({
+
+    characterId,
+
+    nickname: finalNickname,
+
+    onboardingComplete: true,
+
+
+    invitedBy:
+      inviteCode,
+
+  });
+
+
+
+  router.push("/home");
+
+};
 
   if (nicknameLoading) {
     return (

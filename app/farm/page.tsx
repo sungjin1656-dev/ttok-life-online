@@ -7,6 +7,7 @@ import { Guard } from "@/components/ui/Guard";
 import { BottomNav } from "@/components/ui/BottomNav";
 import { useGame } from "@/context/GameContext";
 import { getCrop, wateringCost } from "@/lib/crops";
+import { plants } from "@/lib/plants";
 
 
 
@@ -102,6 +103,7 @@ const [showWaterEffect, setShowWaterEffect] = useState(false);
 const [isCropPopping, setIsCropPopping] = useState(false);
 const [showCompleteEffect, setShowCompleteEffect] = useState(false);
 const [haniAssetsReady, setHaniAssetsReady] = useState(false);
+const [showWaterLackMessage, setShowWaterLackMessage] = useState(false);
 
 useEffect(() => {
   let cancelled = false;
@@ -149,7 +151,20 @@ const {
   patchGame,
 } = useGame();
 
+
+const currentPlant =
+  plants.find(
+    (item) =>
+      item.id === game.currentCropId
+  );
+
+
 const crop = getCrop(game.currentCropId);
+
+const isLocked =
+  currentPlant
+    ? game.level < currentPlant.requiredLevel
+    : false;
 
 const cost = wateringCost(crop);
 
@@ -178,10 +193,25 @@ const growth = Math.min(
 
   const waterCrop = () => {
 
+  if (
+  ready ||
+  isWatering ||
+  isLocked
+) {
+  return;
+}
 
-    if (ready || isWatering)
 
-      return;
+if (game.water < cost) {
+
+  setShowWaterLackMessage(true);
+
+  window.setTimeout(() => {
+    setShowWaterLackMessage(false);
+  }, 2500);
+
+  return;
+}
 
 
 
@@ -217,11 +247,12 @@ const growth = Math.min(
   // 화분 POP 시작
   setIsCropPopping(true);
 
-  patchGame({
+ patchGame({
 
-    water: 99999,
+  water:
+    game.water - cost,
 
-    cropWaterings: next,
+  cropWaterings: next,
 
     cropGrowth:
       Math.round(
@@ -296,72 +327,47 @@ const growth = Math.min(
 
     patchGame({
 
+  cropGrowth: 0,
 
-      cropGrowth: 0,
-
-
-      cropWaterings: 0,
+  cropWaterings: 0,
 
 
-      level:
+  harvestedCrops: {
 
-        game.level + 1,
+    ...(game.harvestedCrops ?? {}),
 
+    [crop.id]:
+      (game.harvestedCrops?.[crop.id] ?? 0) + 1
 
-
-      harvestedCrops: {
-
-
-        ...(game.harvestedCrops ?? {}),
+  },
 
 
-        [crop.id]:
+  
 
-          (game.harvestedCrops?.[crop.id] ?? 0) + 1
+rewards: [
 
+ {
+  id: `reward-${Date.now()}`,
 
-      },
+  productId: crop.id,
 
+  productName: crop.name,
 
+  emoji: crop.emoji,
 
-      rewards: [
+  quantity:"1개",
 
-        {
+  status:"보관 중",
 
-          id:
+  deliveryAvailable:true,
 
-            `reward-${Date.now()}`,
+  harvestedAt:
+    new Date().toLocaleDateString("ko-KR"),
+ },
 
+]
 
-          productName:
-
-            crop.rewardName,
-
-
-          emoji:
-
-            crop.emoji,
-
-
-          status:
-
-            "보관 중",
-
-
-          harvestedAt:
-
-            new Date()
-
-              .toLocaleDateString("ko-KR")
-
-        },
-
-
-        ...game.rewards
-
-      ]
-
-    });
+});
 
 
 
@@ -456,6 +462,30 @@ const growth = Math.min(
 
 
             {/* MISSION */}
+
+            {
+  showWaterLackMessage && (
+
+    <div className="farm-water-lack-message">
+
+      <strong>
+        💧 물방울이 부족해요
+      </strong>
+
+      <span>
+        현재 {game.water}개 /
+        필요 {cost}개
+      </span>
+
+      <small>
+        걷기 또는 쇼핑으로
+        물방울을 모아보세요
+      </small>
+
+    </div>
+
+  )
+}
 
             <div className="farm-v40-mission">
 
@@ -666,74 +696,75 @@ const growth = Math.min(
           <section className="farm-v40-panel">
 
 
-
-            <div className="farm-v40-title">
-
+  <div className="farm-v40-title">
 
 
-              <div>
+    <div className="farm-title-info">
 
 
-                <h2>
-
-                  {crop.name}
-
-                </h2>
-
-
-                <span>
-
-                  LV.{game.level}
-
-                </span>
+      <img
+        src="/crops/lucky-pot/stage10.png"
+        alt="행운의 화분"
+        className="farm-title-pot"
+      />
 
 
-              </div>
+      <div>
+
+        <h2>
+          {isLocked
+            ? "🔒 잠금 작물"
+            : "🌸 행운의 화분 키우기"}
+        </h2>
+
+
+        <p>
+         💧 물방울로 성장시키고
+          <br />
+          특별한 보상을 받아보세요
+        </p>
+
+
+      </div>
+
+
+    </div>
 
 
 
-              <button
+    <button
+      type="button"
+      onClick={
+        isLocked
+          ? undefined
+          : ready
+            ? harvestCrop
+            : waterCrop
+      }
+      disabled={
+        isLocked ||
+        (!ready && (isWatering || !haniAssetsReady))
+      }
+    >
 
-                type="button"
+      {
+        isLocked
+          ? `🔒 LV.${currentPlant?.requiredLevel} 필요`
+          : ready
+            ? "수확하기"
+            : !haniAssetsReady
+              ? "준비 중..."
+              : isWatering
+                ? "물을 주는 중..."
+                : <>
+                    💧 물주기 {cost}
+                  </>
+      }
 
-                onClick={
-
-                  ready
-
-                    ?
-
-                    harvestCrop
-
-                    :
-
-                    waterCrop
-
-                }
-
-                disabled={!ready && (isWatering || !haniAssetsReady)}
-
-              >
-
-
-            {
-  ready
-    ? "수확하기"
-    : !haniAssetsReady
-      ? "준비 중..."
-      : isWatering
-        ? "물을 주는 중..."
-        : <>
-            💧 물주기 {cost}
-          </>
-}
-
-                
+    </button>
 
 
-              </button>
-
-
-            </div>
+  </div>
 
 
 
@@ -849,13 +880,16 @@ const growth = Math.min(
             <p className="farm-v40-info">
 
 
-              💧 물방울로 행운의 화분을 키워
+              💧 마법 
+
+물방울 30개 = 성장 에너지 +1
 
 
               <br />
 
 
-              완성 후 수확 보상을 받아보세요
+              식물을 성장시키고
+수확 보상을 받아보세요
 
 
             </p>
@@ -882,6 +916,54 @@ const growth = Math.min(
 
 
             }
+            .farm-water-lack-message {
+
+  position: absolute;
+
+  left: 50%;
+
+  top: 120px;
+
+  transform: translateX(-50%);
+
+  background: white;
+
+  padding: 16px;
+
+  border-radius: 16px;
+
+  text-align: center;
+
+  z-index: 20;
+
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+
+}
+
+
+.farm-water-lack-message strong {
+
+  display:block;
+
+}
+
+
+.farm-water-lack-message span {
+
+  display:block;
+
+  margin-top:6px;
+
+}
+
+
+.farm-water-lack-message small {
+
+  display:block;
+
+  margin-top:8px;
+
+}
 
           `}</style>
 

@@ -1,58 +1,296 @@
-export type CharacterId = "hani" | "harin" | "hajun" | "minjun";
+export type CharacterId =
+  | "hani"
+  | "harin"
+  | "hajun"
+  | "minjun";
+
+export type InviteHistory = {
+  id: string;
+  inviterCode: string;
+  joinedAt: string;
+  reward: number;
+};
 
 export type RewardItem = {
+
   id: string;
+
   productName: string;
+
   emoji: string;
-  status: "보관 중" | "배송 예정" | "사용 완료";
+
+
+  // 보물 수량
+
+  quantity: string;
+
+
+
+  status:
+    | "보관 중"
+    | "배송 예정"
+    | "사용 완료";
+
+
+
+  // 배송 선택 여부
+
+  selected: boolean;
+
+
+
   harvestedAt: string;
+
 };
+
 
 export type GameState = {
+
+
   onboardingComplete: boolean;
+
+
   characterId: CharacterId;
+
+
   nickname: string;
+
+
   region: string;
+
+
+
   level: number;
+
+
+  totalPurchase: number;
+
+
+
   exp: number;
+
+
   water: number;
+
+
+
   todaySteps: number;
+
+
   weeklySteps: number;
+
+
   calories: number;
+
+
+
   cropName: string;
+
+
   cropEmoji: string;
+
+
   cropGrowth: number;
+
+
+
   rewards: RewardItem[];
+
+
+
   invitedResidents: number;
-  currentCropId: "carrot" | "potato" | "tomato";
+
+
+  // 친구초대 시스템
+
+  inviteCode: string;
+
+  invitedCount: number;
+
+  invitedBy: string;
+
+  inviteHistory: InviteHistory[];
+
+
+  currentCropId: string;
+
+
   cropWaterings: number;
+
+
+
   harvestedCrops: Record<string, number>;
+
+
+
+  // 출석 시스템
+
+  lastAttendanceDate: string;
+
+
+  attendanceCount: number;
+
+
 };
+
+
+
+
 
 export const initialGameState: GameState = {
+
+
   onboardingComplete: true,
+
+
+
   characterId: "hani",
+
+
+
   nickname: "똑똑이",
+
+
+
   region: "명지동",
+
+
+
+
   level: 1,
+
+
+
+  totalPurchase: 0,
+
+
+
+
+
   exp: 0,
-  water: 1000,
+
+
+  water: 10,
+
+
+
+
+
   todaySteps: 0,
+
+
   weeklySteps: 0,
+
+
   calories: 0,
+
+
+
+
+
   cropName: "당근",
+
+
   cropEmoji: "🥕",
+
+
   cropGrowth: 0,
+
+
+
+
+
   rewards: [],
+
+
+
+
+
   invitedResidents: 0,
+
+
+
+  // 친구초대 초기값
+
+  inviteCode: "TTOK0001",
+
+  invitedCount: 0,
+
+  invitedBy: "",
+
+  inviteHistory: [],
+
+
+
+
   currentCropId: "carrot",
+
+
+
   cropWaterings: 0,
+
+
+
+
+
   harvestedCrops: {},
+
+
+
+
+
+  // 출석 초기값
+
+  lastAttendanceDate: "",
+
+
+  attendanceCount: 0,
+
+
+
 };
 
+
+
+
+
 export const characters = [
-  { id: "hani", name: "하니", personality: "유쾌한 에너지", subtitle: "밝고 긍정적인 달리기 친구", theme: "#FFD862" },
-  { id: "harin", name: "하린", personality: "러블리 똑순이", subtitle: "예쁘고 다정한 건강 친구", theme: "#FFB8D0" },
-  { id: "hajun", name: "하준", personality: "신나는 모험가", subtitle: "활동적이고 유쾌한 도전 친구", theme: "#A5E0B7" },
-  { id: "minjun", name: "민준", personality: "차분한 리더", subtitle: "믿음직하고 멋진 목표 친구", theme: "#B9DAFF" },
+
+
+  {
+    id: "hani",
+    name: "하니",
+    personality: "유쾌한 에너지",
+    subtitle: "밝고 긍정적인 달리기 친구",
+    theme: "#FFD862",
+  },
+
+
+  {
+    id: "harin",
+    name: "하린",
+    personality: "러블리 똑순이",
+    subtitle: "예쁘고 다정한 건강 친구",
+    theme: "#FFB8D0",
+  },
+
+
+  {
+    id: "hajun",
+    name: "하준",
+    personality: "신나는 모험가",
+    subtitle: "활동적이고 유쾌한 도전 친구",
+    theme: "#A5E0B7",
+  },
+
+
+  {
+    id: "minjun",
+    name: "민준",
+    personality: "차분한 리더",
+    subtitle: "믿음직하고 멋진 목표 친구",
+    theme: "#B9DAFF",
+  },
+
+
 ] as const;
