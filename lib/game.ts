@@ -15,9 +15,21 @@ export type RewardItem = {
 
   id: string;
 
+
+  // 상품 식별자
+
+  productId: string;
+
+
+  // 상품명
+
   productName: string;
 
+
+  // 표시 이미지
+
   emoji: string;
+
 
 
   // 보물 수량
@@ -26,18 +38,34 @@ export type RewardItem = {
 
 
 
+  // 보물 상태
+
   status:
     | "보관 중"
-    | "배송 예정"
-    | "사용 완료";
+    | "배송 요청"
+    | "배송 완료";
 
 
 
-  // 배송 선택 여부
+  // 현재 배송 가능 여부
 
-  selected: boolean;
+  deliveryAvailable: boolean;
 
 
+
+  // 배송 불가 사유
+
+  unavailableMessage?: string;
+
+
+
+  // 배송 가능 예정일
+
+  availableDate?: string;
+
+
+
+  // 획득 날짜
 
   harvestedAt: string;
 
