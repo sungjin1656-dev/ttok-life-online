@@ -34,13 +34,13 @@ export const attendanceRewards: Record<
 
 
   7: {
-    water: 100,
-    reward: "물방울 300획득",
+    water: 300,
+    reward: "",
   },
 
 
   14: {
-    water: 150,
+    water: 0,
     reward: "LEVEL1 보상교환권",
   },
 
