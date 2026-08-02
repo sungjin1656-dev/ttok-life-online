@@ -1,0 +1,531 @@
+.root {
+  min-height: 100svh;
+  color: #173b66;
+  background:
+    radial-gradient(circle at 50% -8%, rgba(255, 255, 255, 0.98), transparent 34%),
+    linear-gradient(180deg, #fff5e8 0%, #eff9ff 42%, #f8fcff 100%);
+}
+
+.root * {
+  box-sizing: border-box;
+}
+
+.root button {
+  font: inherit;
+}
+
+.shell {
+  width: 100%;
+  max-width: 640px;
+  min-height: 100svh;
+  margin: 0 auto;
+  padding:
+    max(14px, env(safe-area-inset-top))
+    12px
+    calc(112px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.header {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 9px;
+}
+
+.backButton,
+.settingButton {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #27628f;
+  box-shadow: 0 7px 17px rgba(45, 105, 157, 0.13);
+}
+
+.backButton {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.settingButton {
+  font-size: 18px;
+  font-weight: 1000;
+}
+
+.heading span,
+.heading h1 {
+  display: block;
+}
+
+.heading span {
+  color: #718ba1;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.heading h1 {
+  margin: 2px 0 0;
+  color: #173653;
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 1000;
+}
+
+/* HERO */
+
+.hero {
+  position: relative;
+  min-height: 370px;
+  overflow: hidden;
+  isolation: isolate;
+  border: 3px solid rgba(255, 255, 255, 0.96);
+  border-radius: 29px;
+  background: #f7cf9e;
+  box-shadow:
+    0 17px 38px rgba(114, 84, 48, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+.heroBackground {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+}
+
+.heroShade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(180deg, rgba(109, 65, 23, 0.04), transparent 45%),
+    linear-gradient(180deg, transparent 48%, rgba(83, 53, 24, 0.12));
+}
+
+.profileCard {
+  position: absolute;
+  z-index: 2;
+  left: 15px;
+  right: 15px;
+  bottom: 15px;
+  min-height: 168px;
+  display: grid;
+  grid-template-columns: 145px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.89);
+  backdrop-filter: blur(9px);
+  box-shadow: 0 12px 27px rgba(81, 67, 43, 0.17);
+}
+
+.profileVisual {
+  position: relative;
+  height: 140px;
+  display: grid;
+  place-items: end center;
+  overflow: hidden;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 40%, #fff8c8, transparent 54%),
+    linear-gradient(180deg, #e9f9ff, #eaf7e7);
+}
+
+.profileHalo {
+  position: absolute;
+  width: 105px;
+  height: 105px;
+  border: 10px solid rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  background: rgba(112, 216, 170, 0.18);
+}
+
+.profileVisual img {
+  position: relative;
+  z-index: 2;
+  width: 126px;
+  height: 136px;
+  object-fit: contain;
+  object-position: center bottom;
+  filter: drop-shadow(0 9px 7px rgba(73, 77, 60, 0.15));
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nameRow h2 {
+  margin: 0;
+  color: #284f63;
+  font-size: 24px;
+  font-weight: 1000;
+}
+
+.nameRow span {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #e7f4ff;
+  color: #2680c1;
+  font-size: 10px;
+  font-weight: 1000;
+}
+
+.profileInfo > p {
+  margin: 8px 0 0;
+  color: #6f8794;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.levelRow {
+  margin-top: 16px;
+}
+
+.levelRow > span,
+.levelRow > strong {
+  color: #4f7488;
+  font-size: 10px;
+  font-weight: 1000;
+}
+
+.levelRow > div {
+  height: 9px;
+  margin: 6px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e6eef2;
+}
+
+.levelRow i {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #58caff, #56d59a);
+}
+
+/* SUMMARY */
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.summaryGrid button {
+  min-width: 0;
+  min-height: 115px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 10px 6px;
+  border: 1px solid #dfeaf2;
+  border-radius: 19px;
+  background: #ffffff;
+  box-shadow: 0 9px 20px rgba(46, 104, 153, 0.09);
+}
+
+.summaryGrid img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+
+.summaryGrid span,
+.summaryGrid strong {
+  display: block;
+}
+
+.summaryGrid span {
+  margin-top: 7px;
+  color: #77909e;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.summaryGrid strong {
+  margin-top: 4px;
+  color: #246fa7;
+  font-size: 20px;
+  font-weight: 1000;
+}
+
+/* POINT */
+
+.pointCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 17px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 90% 10%, rgba(255, 255, 255, 0.3), transparent 30%),
+    linear-gradient(135deg, #52c7ff, #3189e8);
+  box-shadow: 0 13px 27px rgba(45, 135, 221, 0.21);
+}
+
+.pointCard span,
+.pointCard strong,
+.pointCard p {
+  display: block;
+}
+
+.pointCard span {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.pointCard strong {
+  margin-top: 5px;
+  color: #ffffff;
+  font-size: 29px;
+  line-height: 1;
+  font-weight: 1000;
+}
+
+.pointCard p {
+  margin: 7px 0 0;
+  color: rgba(255, 255, 255, 0.81);
+  font-size: 9px;
+  line-height: 1.4;
+  font-weight: 800;
+}
+
+.pointCard button {
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 1000;
+}
+
+/* MENU */
+
+.menuSection,
+.listSection {
+  padding: 15px 12px;
+  border: 1px solid #dce9f3;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 11px 25px rgba(47, 104, 153, 0.1);
+}
+
+.sectionHeading {
+  margin-bottom: 12px;
+}
+
+.sectionHeading span {
+  display: block;
+  color: #7b91a0;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.sectionHeading h2 {
+  margin: 3px 0 0;
+  color: #24465f;
+  font-size: 20px;
+  font-weight: 1000;
+}
+
+.mainMenuGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.mainMenuGrid button {
+  min-height: 112px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  padding: 13px;
+  border: 1px solid #e3edf3;
+  border-radius: 17px;
+  background: linear-gradient(180deg, #fbfdff, #f5faff);
+  text-align: left;
+}
+
+.menuIcon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: #ffffff;
+  font-size: 22px;
+  box-shadow: 0 6px 13px rgba(59, 113, 148, 0.1);
+}
+
+.mainMenuGrid strong,
+.mainMenuGrid small {
+  display: block;
+}
+
+.mainMenuGrid strong {
+  margin-top: 9px;
+  color: #35586d;
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.mainMenuGrid small {
+  margin-top: 3px;
+  color: #8798a3;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+/* LIST */
+
+.listSection {
+  display: grid;
+  gap: 4px;
+}
+
+.listSection > button {
+  min-height: 70px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 8px;
+  border: 0;
+  border-bottom: 1px solid #edf2f5;
+  background: transparent;
+  text-align: left;
+}
+
+.listSection > button:last-child {
+  border-bottom: 0;
+}
+
+.listSection > button > span {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: #f0f7fb;
+  font-size: 21px;
+}
+
+.listSection strong,
+.listSection small {
+  display: block;
+}
+
+.listSection strong {
+  color: #34566b;
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.listSection small {
+  margin-top: 4px;
+  color: #8797a2;
+  font-size: 10px;
+  line-height: 1.35;
+  font-weight: 800;
+}
+
+.listSection b {
+  color: #8ca0ad;
+  font-size: 23px;
+}
+
+.listSection em {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #f1f3f5;
+  color: #8d999f;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 1000;
+}
+
+.noticeCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid #ecd99e;
+  border-radius: 17px;
+  background: #fff9df;
+}
+
+.noticeCard span {
+  font-size: 19px;
+}
+
+.noticeCard p {
+  margin: 0;
+  color: #7d714e;
+  font-size: 10px;
+  line-height: 1.5;
+  font-weight: 850;
+}
+
+@media (max-width: 390px) {
+  .shell {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .hero {
+    min-height: 400px;
+  }
+
+  .profileCard {
+    grid-template-columns: 118px minmax(0, 1fr);
+  }
+
+  .profileVisual {
+    height: 125px;
+  }
+
+  .profileVisual img {
+    width: 112px;
+    height: 122px;
+  }
+
+  .nameRow h2 {
+    font-size: 21px;
+  }
+
+  .summaryGrid strong {
+    font-size: 17px;
+  }
+
+  .pointCard {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pointCard button {
+    width: 100%;
+  }
+}

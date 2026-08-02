@@ -7307,3 +7307,1915 @@ margin-bottom:4px;
   padding:0 24px;
 
 }
+/* =====================================================
+   TTOK LIFE HOME DESIGN MASTER V1
+   ===================================================== */
+
+.home-master-v1{
+  min-height:100svh;
+  padding:
+    max(15px,env(safe-area-inset-top))
+    13px
+    calc(96px + env(safe-area-inset-bottom));
+
+  display:flex;
+  flex-direction:column;
+  gap:13px;
+
+  color:#173b66;
+
+  background:
+    radial-gradient(
+      circle at 50% -8%,
+      rgba(255,255,255,.95),
+      transparent 34%
+    ),
+    linear-gradient(
+      180deg,
+      #dff4ff 0%,
+      #eef9ff 45%,
+      #f7fcff 100%
+    );
+}
+
+
+/* HEADER */
+
+.home-master-v1-header{
+  display:grid;
+  grid-template-columns:58px minmax(0,1fr) 103px;
+  align-items:center;
+  gap:9px;
+}
+
+.home-master-v1-avatar{
+  position:relative;
+
+  width:58px;
+  height:58px;
+
+  padding:0;
+  overflow:hidden;
+
+  border:4px solid #fff;
+  border-radius:50%;
+
+  background:#dff3ff;
+
+  box-shadow:
+    0 7px 18px rgba(47,114,171,.17);
+}
+
+.home-master-v1-avatar img{
+  object-fit:contain;
+}
+
+.home-master-v1-profile{
+  min-width:0;
+}
+
+.home-master-v1-profile span,
+.home-master-v1-profile strong,
+.home-master-v1-profile small{
+  display:block;
+}
+
+.home-master-v1-profile span{
+  color:#69839b;
+  font-size:10px;
+  font-weight:900;
+}
+
+.home-master-v1-profile strong{
+  margin-top:2px;
+
+  color:#163755;
+
+  font-size:19px;
+  line-height:1.05;
+  font-weight:1000;
+}
+
+.home-master-v1-profile small{
+  margin-top:5px;
+
+  overflow:hidden;
+
+  color:#7890a8;
+
+  font-size:9px;
+  font-weight:850;
+
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+
+.home-master-v1-wallet{
+  padding:9px 7px;
+
+  border:1px solid rgba(255,255,255,.95);
+  border-radius:17px;
+
+  background:rgba(255,255,255,.94);
+
+  text-align:center;
+
+  box-shadow:
+    0 7px 18px rgba(47,114,171,.12);
+}
+
+.home-master-v1-wallet span{
+  display:block;
+
+  color:#6d849b;
+
+  font-size:9px;
+  font-weight:900;
+}
+
+.home-master-v1-wallet strong{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+
+  margin-top:3px;
+
+  color:#173653;
+
+  font-size:16px;
+  font-weight:1000;
+}
+
+
+/* MAIN WALK CARD */
+
+.home-master-v1-hero{
+  position:relative;
+
+  min-height:232px;
+
+  padding:20px 14px 15px;
+
+  overflow:hidden;
+
+  border:2px solid rgba(255,255,255,.92);
+  border-radius:27px;
+
+  background:
+    radial-gradient(
+      circle at 80% 20%,
+      rgba(255,255,255,.8),
+      transparent 34%
+    ),
+    linear-gradient(
+      145deg,
+      #bfe9ff 0%,
+      #eaf8ff 55%,
+      #dcf6e3 100%
+    );
+
+  box-shadow:
+    0 15px 34px rgba(47,115,174,.16);
+}
+
+.home-master-v1-hero-copy{
+  position:relative;
+  z-index:3;
+
+  width:61%;
+}
+
+.home-master-v1-label{
+  color:#3f6687;
+
+  font-size:13px;
+  font-weight:1000;
+}
+
+.home-master-v1-step-value{
+  display:flex;
+  align-items:flex-end;
+  gap:5px;
+
+  margin:10px 0 13px;
+}
+
+.home-master-v1-step-value strong{
+  color:#176fd2;
+
+  font-size:40px;
+  line-height:.9;
+  letter-spacing:-2px;
+  font-weight:1000;
+}
+
+.home-master-v1-step-value span{
+  padding-bottom:3px;
+
+  color:#245b89;
+
+  font-size:13px;
+  font-weight:1000;
+}
+
+.home-master-v1-step-track{
+  height:11px;
+
+  overflow:hidden;
+
+  border-radius:999px;
+
+  background:rgba(255,255,255,.88);
+
+  box-shadow:
+    inset 0 1px 4px rgba(48,115,170,.14);
+}
+
+.home-master-v1-step-track i{
+  display:block;
+
+  height:100%;
+
+  border-radius:inherit;
+
+  background:
+    linear-gradient(
+      90deg,
+      #54b2ff,
+      #1979df
+    );
+}
+
+.home-master-v1-goal-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+
+  margin-top:7px;
+
+  color:#678299;
+
+  font-size:9px;
+  font-weight:900;
+}
+
+.home-master-v1-goal-row strong{
+  color:#1976d4;
+}
+
+.home-master-v1-walk-button{
+  width:100%;
+  min-height:42px;
+
+  margin-top:14px;
+
+  border:0;
+  border-radius:14px;
+
+  color:#fff;
+
+  font-size:13px;
+  font-weight:1000;
+
+  background:
+    linear-gradient(
+      180deg,
+      #4ba8fb,
+      #217ddf
+    );
+
+  box-shadow:
+    0 8px 16px rgba(33,125,223,.25);
+}
+
+.home-master-v1-character{
+  position:absolute;
+
+  right:-13px;
+  bottom:3px;
+
+  width:47%;
+  height:221px;
+}
+
+.home-master-v1-character img{
+  object-fit:contain;
+  object-position:center bottom;
+}
+
+
+/* STATS */
+
+.home-master-v1-stats{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+}
+
+.home-master-v1-stats article{
+  min-width:0;
+
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+
+  padding:12px 5px 11px;
+
+  border:1px solid #deebf6;
+  border-radius:18px;
+
+  background:#fff;
+
+  text-align:center;
+
+  box-shadow:
+    0 8px 20px rgba(48,111,164,.1);
+}
+
+.home-master-v1-stats article.total-calorie{
+  background:
+    linear-gradient(
+      180deg,
+      #fff7eb,
+      #fff
+    );
+
+  border-color:#ffe0b8;
+}
+
+.home-master-v1-stats article span{
+  margin-top:5px;
+
+  color:#72889d;
+
+  font-size:9px;
+  font-weight:900;
+}
+
+.home-master-v1-stats article strong{
+  display:block;
+
+  margin-top:3px;
+
+  color:#173653;
+
+  font-size:13px;
+  font-weight:1000;
+
+  white-space:nowrap;
+}
+
+.home-master-v1-stats article small{
+  font-size:8px;
+}
+
+
+/* FARM */
+
+.home-master-v1-farm{
+  position:relative;
+
+  width:100%;
+
+  display:grid;
+  grid-template-columns:82px minmax(0,1fr) 15px;
+  align-items:center;
+  gap:11px;
+
+  padding:13px;
+
+  border:1px solid #dcecf7;
+  border-radius:23px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #fff 0%,
+      #f7fff4 100%
+    );
+
+  color:#173653;
+
+  text-align:left;
+
+  box-shadow:
+    0 10px 25px rgba(47,112,165,.11);
+}
+
+.home-master-v1-farm-image{
+  position:relative;
+
+  width:82px;
+  height:82px;
+
+  border-radius:19px;
+
+  background:
+    radial-gradient(
+      circle,
+      #fff 0%,
+      #e8f8dc 100%
+    );
+}
+
+.home-master-v1-farm-image img{
+  object-fit:contain;
+}
+
+.home-master-v1-farm-copy{
+  min-width:0;
+}
+
+.home-master-v1-farm-copy span,
+.home-master-v1-farm-copy strong,
+.home-master-v1-farm-copy small{
+  display:block;
+}
+
+.home-master-v1-farm-copy span{
+  color:#5d7e6a;
+
+  font-size:10px;
+  font-weight:900;
+}
+
+.home-master-v1-farm-copy strong{
+  margin-top:3px;
+
+  color:#247c4b;
+
+  font-size:16px;
+  font-weight:1000;
+}
+
+.home-master-v1-farm-copy small{
+  margin-top:6px;
+
+  color:#7a8d80;
+
+  font-size:9px;
+  line-height:1.35;
+  font-weight:800;
+}
+
+.home-master-v1-farm-track{
+  height:8px;
+
+  margin-top:8px;
+
+  overflow:hidden;
+
+  border-radius:999px;
+
+  background:#deeddc;
+}
+
+.home-master-v1-farm-track i{
+  display:block;
+
+  height:100%;
+
+  border-radius:inherit;
+
+  background:
+    linear-gradient(
+      90deg,
+      #7bd46e,
+      #35aa5e
+    );
+}
+
+.home-master-v1-farm > em{
+  color:#6f9b7b;
+
+  font-size:26px;
+  font-style:normal;
+}
+
+
+/* QUICK BUTTONS */
+
+.home-master-v1-quick-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+}
+
+.home-master-v1-quick-grid button{
+  min-width:0;
+
+  display:grid;
+  grid-template-columns:39px minmax(0,1fr) 8px;
+  align-items:center;
+  gap:7px;
+
+  padding:12px 10px;
+
+  border:1px solid #dfeaf4;
+  border-radius:19px;
+
+  background:#fff;
+
+  color:#173653;
+
+  text-align:left;
+
+  box-shadow:
+    0 8px 19px rgba(48,106,157,.09);
+}
+
+.quick-icon{
+  width:39px;
+  height:39px;
+
+  display:grid;
+  place-items:center;
+
+  border-radius:13px;
+
+  background:#edf6ff;
+
+  font-size:22px;
+}
+
+.home-master-v1-quick-grid small,
+.home-master-v1-quick-grid strong{
+  display:block;
+}
+
+.home-master-v1-quick-grid small{
+  color:#74899c;
+
+  font-size:8px;
+  font-weight:900;
+}
+
+.home-master-v1-quick-grid strong{
+  margin-top:3px;
+
+  overflow:hidden;
+
+  font-size:11px;
+  font-weight:1000;
+
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+
+.home-master-v1-quick-grid em{
+  color:#9eb0c0;
+
+  font-size:18px;
+  font-style:normal;
+}
+
+
+/* MISSIONS */
+
+.home-master-v1-missions{
+  padding:14px 13px;
+
+  border:1px solid #dfeaf4;
+  border-radius:22px;
+
+  background:#fff;
+
+  box-shadow:
+    0 9px 22px rgba(48,106,157,.1);
+}
+
+.home-master-v1-section-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+
+  margin-bottom:7px;
+}
+
+.home-master-v1-section-title span,
+.home-master-v1-section-title strong{
+  display:block;
+}
+
+.home-master-v1-section-title span{
+  color:#173653;
+
+  font-size:15px;
+  font-weight:1000;
+}
+
+.home-master-v1-section-title strong{
+  margin-top:2px;
+
+  color:#7890a5;
+
+  font-size:9px;
+  font-weight:800;
+}
+
+.home-master-v1-section-title b{
+  padding:5px 9px;
+
+  border-radius:999px;
+
+  background:#e9f4ff;
+
+  color:#1977d5;
+
+  font-size:10px;
+}
+
+.home-master-v1-missions > button{
+  width:100%;
+  min-height:43px;
+
+  display:grid;
+  grid-template-columns:23px minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px;
+
+  padding:0;
+
+  border:0;
+  border-top:1px solid #edf3f8;
+
+  background:transparent;
+
+  color:#29475f;
+
+  text-align:left;
+}
+
+.home-master-v1-missions > button i{
+  width:20px;
+  height:20px;
+
+  display:grid;
+  place-items:center;
+
+  border-radius:50%;
+
+  background:#e7f2fc;
+
+  color:#2582dc;
+
+  font-size:9px;
+  font-style:normal;
+  font-weight:1000;
+}
+
+.home-master-v1-missions > button i.done{
+  background:#39c982;
+  color:#fff;
+}
+
+.home-master-v1-missions > button span{
+  font-size:11px;
+  font-weight:900;
+}
+
+.home-master-v1-missions > button strong{
+  color:#71869a;
+
+  font-size:9px;
+  font-weight:900;
+
+  white-space:nowrap;
+}
+
+
+/* INVITE */
+
+.home-master-v1-invite{
+  padding:15px;
+
+  border:1px solid #f1d774;
+  border-radius:23px;
+
+  background:
+    radial-gradient(
+      circle at 95% 0%,
+      rgba(255,255,255,.65),
+      transparent 36%
+    ),
+    linear-gradient(
+      145deg,
+      #fff4a7 0%,
+      #ffe476 100%
+    );
+
+  box-shadow:
+    0 11px 25px rgba(184,143,34,.17);
+}
+
+.home-master-v1-invite-top{
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr) 39px;
+  align-items:center;
+  gap:9px;
+}
+
+.home-master-v1-kakao-icon{
+  width:42px;
+  height:42px;
+
+  display:grid;
+  place-items:center;
+
+  border-radius:15px;
+
+  background:#3c1e1e;
+
+  font-size:23px;
+}
+
+.home-master-v1-invite-top span,
+.home-master-v1-invite-top strong{
+  display:block;
+}
+
+.home-master-v1-invite-top span{
+  color:#5d4410;
+
+  font-size:11px;
+  font-weight:900;
+}
+
+.home-master-v1-invite-top strong{
+  margin-top:2px;
+
+  color:#3b2911;
+
+  font-size:14px;
+  font-weight:1000;
+}
+
+.home-master-v1-invite p{
+  margin:11px 0 9px;
+
+  color:#6b541d;
+
+  font-size:9px;
+  line-height:1.5;
+  font-weight:850;
+}
+
+.home-master-v1-invite-summary{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+
+  padding:9px 10px;
+
+  border-radius:13px;
+
+  background:rgba(255,255,255,.55);
+
+  color:#6a531d;
+
+  font-size:9px;
+  font-weight:850;
+}
+
+.home-master-v1-invite-summary strong{
+  color:#3b2d11;
+}
+
+.home-master-v1-invite > button{
+  width:100%;
+  min-height:46px;
+
+  margin-top:10px;
+
+  border:0;
+  border-radius:14px;
+
+  background:#fee500;
+
+  color:#3c1e1e;
+
+  font-size:13px;
+  font-weight:1000;
+
+  box-shadow:
+    0 7px 14px rgba(151,116,0,.17);
+}
+
+
+/* SMALL MOBILE */
+
+@media (max-width:370px){
+
+  .home-master-v1{
+    padding-left:9px;
+    padding-right:9px;
+  }
+
+  .home-master-v1-header{
+    grid-template-columns:
+      52px minmax(0,1fr) 91px;
+    gap:7px;
+  }
+
+  .home-master-v1-avatar{
+    width:52px;
+    height:52px;
+  }
+
+  .home-master-v1-profile strong{
+    font-size:17px;
+  }
+
+  .home-master-v1-step-value strong{
+    font-size:35px;
+  }
+
+  .home-master-v1-character{
+    right:-19px;
+  }
+
+  .home-master-v1-stats{
+    gap:6px;
+  }
+
+  .home-master-v1-stats article strong{
+    font-size:11px;
+  }
+
+  .home-master-v1-farm{
+    grid-template-columns:
+      73px minmax(0,1fr) 12px;
+  }
+
+  .home-master-v1-farm-image{
+    width:73px;
+    height:73px;
+  }
+
+  .home-master-v1-quick-grid{
+    gap:6px;
+  }
+}
+/* =====================================================
+   TTOK LIFE HOME DESIGN MASTER V2
+   GAME WORLD ASSET VERSION
+   ===================================================== */
+
+.home-v2{
+  min-height:100svh;
+
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+
+  padding:
+    max(15px,env(safe-area-inset-top))
+    12px
+    calc(100px + env(safe-area-inset-bottom));
+
+  color:#173b66;
+
+  background:
+    radial-gradient(
+      circle at 50% -8%,
+      rgba(255,255,255,.95),
+      transparent 33%
+    ),
+    linear-gradient(
+      180deg,
+      #dff3ff 0%,
+      #eef9ff 54%,
+      #f8fcff 100%
+    );
+}
+
+
+/* =========================
+   HEADER
+   ========================= */
+
+.home-v2-header{
+  display:grid;
+  grid-template-columns:58px minmax(0,1fr) 104px;
+  align-items:center;
+  gap:9px;
+
+  padding:2px;
+}
+
+.home-v2-profile-button{
+  position:relative;
+
+  width:58px;
+  height:58px;
+
+  padding:0;
+  overflow:hidden;
+
+  border:4px solid #fff;
+  border-radius:50%;
+
+  background:#dff3ff;
+
+  box-shadow:
+    0 7px 18px rgba(47,111,169,.18);
+}
+
+.home-v2-profile-button img{
+  object-fit:contain;
+}
+
+.home-v2-user{
+  min-width:0;
+}
+
+.home-v2-user span,
+.home-v2-user strong,
+.home-v2-user small{
+  display:block;
+}
+
+.home-v2-user span{
+  color:#68829a;
+  font-size:10px;
+  font-weight:900;
+}
+
+.home-v2-user strong{
+  margin-top:2px;
+
+  color:#173653;
+
+  font-size:19px;
+  line-height:1.05;
+  font-weight:1000;
+}
+
+.home-v2-user small{
+  margin-top:5px;
+
+  overflow:hidden;
+
+  color:#7a91a6;
+
+  font-size:9px;
+  font-weight:850;
+
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+
+.home-v2-water-wallet{
+  padding:9px 6px;
+
+  border:1px solid rgba(255,255,255,.96);
+  border-radius:18px;
+
+  background:rgba(255,255,255,.94);
+
+  text-align:center;
+
+  box-shadow:
+    0 8px 19px rgba(48,111,167,.13);
+}
+
+.home-v2-water-wallet span{
+  display:block;
+
+  color:#6e859a;
+
+  font-size:9px;
+  font-weight:900;
+}
+
+.home-v2-water-wallet strong{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+
+  margin-top:3px;
+
+  color:#173653;
+
+  font-size:16px;
+  font-weight:1000;
+}
+
+
+/* =========================
+   WALK GAME WORLD
+   ========================= */
+
+.home-v2-walk-world{
+  position:relative;
+
+  min-height:268px;
+
+  overflow:hidden;
+
+  border:2px solid rgba(255,255,255,.94);
+  border-radius:29px;
+
+  background-image:
+    url("/assets/backgrounds/home_main_bg.png");
+
+  background-size:cover;
+  background-position:center center;
+  background-repeat:no-repeat;
+
+  box-shadow:
+    0 17px 38px rgba(43,108,164,.19);
+
+  isolation:isolate;
+}
+
+.home-v2-walk-shade{
+  position:absolute;
+  inset:0;
+  z-index:1;
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(235,249,255,.98) 0%,
+      rgba(236,249,255,.92) 39%,
+      rgba(237,249,255,.38) 62%,
+      rgba(255,255,255,.02) 100%
+    );
+}
+
+.home-v2-walk-copy{
+  position:relative;
+  z-index:4;
+
+  width:61%;
+
+  padding:20px 0 17px 14px;
+}
+
+.home-v2-scene-label{
+  display:block;
+
+  color:#2a628f;
+
+  font-size:13px;
+  font-weight:1000;
+}
+
+.home-v2-step-number{
+  display:flex;
+  align-items:flex-end;
+  gap:5px;
+
+  margin:10px 0 12px;
+}
+
+.home-v2-step-number strong{
+  color:#176fd2;
+
+  font-size:40px;
+  line-height:.9;
+  letter-spacing:-2px;
+  font-weight:1000;
+
+  text-shadow:
+    0 2px 0 rgba(255,255,255,.75);
+}
+
+.home-v2-step-number span{
+  padding-bottom:3px;
+
+  color:#285d87;
+
+  font-size:13px;
+  font-weight:1000;
+}
+
+.home-v2-step-track{
+  height:11px;
+
+  overflow:hidden;
+
+  border:1px solid rgba(255,255,255,.9);
+  border-radius:999px;
+
+  background:rgba(255,255,255,.75);
+
+  box-shadow:
+    inset 0 2px 5px rgba(32,100,154,.13);
+}
+
+.home-v2-step-track i{
+  display:block;
+
+  height:100%;
+
+  border-radius:inherit;
+
+  background:
+    linear-gradient(
+      90deg,
+      #59baff,
+      #1675dc
+    );
+
+  box-shadow:
+    0 0 10px rgba(47,150,240,.48);
+}
+
+.home-v2-goal-row{
+  display:flex;
+  justify-content:space-between;
+
+  margin-top:6px;
+
+  color:#63809a;
+
+  font-size:9px;
+  font-weight:900;
+}
+
+.home-v2-goal-row strong{
+  color:#1474d5;
+}
+
+.home-v2-character-message{
+  display:inline-flex;
+
+  margin-top:11px;
+  padding:7px 9px;
+
+  border:1px solid rgba(255,255,255,.92);
+  border-radius:12px;
+
+  background:rgba(255,255,255,.86);
+
+  color:#4e6e89;
+
+  font-size:9px;
+  line-height:1.3;
+  font-weight:900;
+
+  box-shadow:
+    0 5px 13px rgba(44,106,155,.1);
+}
+
+.home-v2-walk-start{
+  width:100%;
+  min-height:43px;
+
+  margin-top:10px;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+
+  border:2px solid rgba(255,255,255,.7);
+  border-radius:15px;
+
+  color:#fff;
+
+  font-size:13px;
+  font-weight:1000;
+
+  background:
+    linear-gradient(
+      180deg,
+      #52afff,
+      #1977dc
+    );
+
+  box-shadow:
+    0 8px 18px rgba(24,112,207,.3),
+    inset 0 2px 0 rgba(255,255,255,.3);
+}
+
+.home-v2-walk-start:active{
+  transform:translateY(2px);
+}
+
+.home-v2-runner{
+  position:absolute;
+
+  z-index:3;
+
+  right:-11px;
+  bottom:-4px;
+
+  width:48%;
+  height:254px;
+
+  pointer-events:none;
+}
+
+.home-v2-runner img{
+  object-fit:contain;
+  object-position:center bottom;
+
+  filter:
+    drop-shadow(
+      0 10px 7px rgba(48,70,63,.17)
+    );
+}
+
+
+/* =========================
+   STATS
+   ========================= */
+
+.home-v2-stat-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+}
+
+.home-v2-stat-card{
+  min-width:0;
+
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+
+  min-height:100px;
+
+  padding:12px 5px 10px;
+
+  border:1px solid rgba(255,255,255,.95);
+  border-radius:20px;
+
+  text-align:center;
+
+  box-shadow:
+    0 9px 21px rgba(48,107,160,.11),
+    inset 0 1px 0 rgba(255,255,255,.9);
+}
+
+.home-v2-stat-card.calorie{
+  background:
+    linear-gradient(
+      180deg,
+      #fff1e5,
+      #fffaf6
+    );
+}
+
+.home-v2-stat-card.total{
+  border-color:#ffe2a8;
+
+  background:
+    linear-gradient(
+      180deg,
+      #fff4c7,
+      #fffdf2
+    );
+}
+
+.home-v2-stat-card.water{
+  background:
+    linear-gradient(
+      180deg,
+      #e8f7ff,
+      #f9fdff
+    );
+}
+
+.home-v2-stat-icon{
+  display:grid;
+  place-items:center;
+
+  width:31px;
+  height:31px;
+
+  font-size:25px;
+  line-height:1;
+}
+
+.home-v2-stat-card small{
+  margin-top:6px;
+
+  color:#73899e;
+
+  font-size:9px;
+  font-weight:900;
+}
+
+.home-v2-stat-card strong{
+  margin-top:4px;
+
+  color:#173653;
+
+  font-size:13px;
+  font-weight:1000;
+
+  white-space:nowrap;
+}
+
+.home-v2-stat-card em{
+  font-size:8px;
+  font-style:normal;
+}
+
+
+/* =========================
+   FARM WORLD
+   ========================= */
+
+.home-v2-world-card{
+  position:relative;
+
+  width:100%;
+  min-height:188px;
+
+  overflow:hidden;
+
+  border:2px solid rgba(255,255,255,.95);
+  border-radius:26px;
+
+  color:#173653;
+
+  text-align:left;
+
+  box-shadow:
+    0 13px 29px rgba(46,107,159,.14);
+
+  isolation:isolate;
+}
+
+.home-v2-farm-world{
+  background-image:
+    url("/assets/backgrounds/home_farm_bg.png");
+
+  background-size:cover;
+  background-position:center center;
+  background-repeat:no-repeat;
+}
+
+.home-v2-world-overlay{
+  position:absolute;
+  inset:0;
+  z-index:1;
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(248,255,244,.98) 0%,
+      rgba(247,255,243,.91) 43%,
+      rgba(255,255,255,.08) 72%
+    );
+}
+
+.home-v2-world-copy{
+  position:relative;
+  z-index:3;
+
+  width:60%;
+
+  padding:18px 0 16px 16px;
+}
+
+.home-v2-world-copy span,
+.home-v2-world-copy strong,
+.home-v2-world-copy small,
+.home-v2-world-copy b{
+  display:block;
+}
+
+.home-v2-world-copy span{
+  color:#527e61;
+
+  font-size:10px;
+  font-weight:900;
+}
+
+.home-v2-world-copy strong{
+  margin-top:3px;
+
+  color:#277c4d;
+
+  font-size:18px;
+  font-weight:1000;
+}
+
+.home-v2-farm-progress{
+  height:9px;
+
+  margin-top:10px;
+
+  overflow:hidden;
+
+  border-radius:999px;
+
+  background:rgba(255,255,255,.76);
+
+  box-shadow:
+    inset 0 2px 5px rgba(50,112,65,.14);
+}
+
+.home-v2-farm-progress i{
+  display:block;
+
+  height:100%;
+
+  border-radius:inherit;
+
+  background:
+    linear-gradient(
+      90deg,
+      #7ede74,
+      #35aa60
+    );
+
+  box-shadow:
+    0 0 10px rgba(64,185,92,.4);
+}
+
+.home-v2-world-copy small{
+  margin-top:8px;
+
+  color:#718d78;
+
+  font-size:9px;
+  line-height:1.45;
+  font-weight:850;
+}
+
+.home-v2-world-copy b{
+  margin-top:12px;
+
+  color:#237b49;
+
+  font-size:11px;
+  font-weight:1000;
+}
+
+.home-v2-world-copy b em{
+  margin-left:5px;
+  font-size:16px;
+  font-style:normal;
+}
+
+
+/* =========================
+   REWARD / RANKING WORLDS
+   ========================= */
+
+.home-v2-world-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+}
+
+.home-v2-mini-world{
+  position:relative;
+
+  min-height:151px;
+
+  overflow:hidden;
+
+  border:2px solid rgba(255,255,255,.93);
+  border-radius:22px;
+
+  color:#fff;
+
+  text-align:left;
+
+  box-shadow:
+    0 11px 25px rgba(44,97,143,.14);
+
+  isolation:isolate;
+}
+
+.home-v2-reward-world{
+  background-image:
+    url("/assets/backgrounds/home_reward_bg.png");
+
+  background-size:cover;
+  background-position:center center;
+}
+
+.home-v2-ranking-world{
+  background-image:
+    url("/assets/backgrounds/home_ranking_bg.png");
+
+  background-size:cover;
+  background-position:center center;
+}
+
+.home-v2-mini-shade{
+  position:absolute;
+  inset:0;
+  z-index:1;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(10,25,45,.02) 18%,
+      rgba(19,37,58,.75) 100%
+    );
+}
+
+.home-v2-mini-copy{
+  position:absolute;
+
+  z-index:3;
+
+  left:11px;
+  right:10px;
+  bottom:11px;
+}
+
+.home-v2-mini-copy span,
+.home-v2-mini-copy strong,
+.home-v2-mini-copy small{
+  display:block;
+}
+
+.home-v2-mini-copy span{
+  color:rgba(255,255,255,.88);
+
+  font-size:9px;
+  font-weight:900;
+
+  text-shadow:
+    0 2px 4px rgba(0,0,0,.35);
+}
+
+.home-v2-mini-copy strong{
+  margin-top:3px;
+
+  overflow:hidden;
+
+  color:#fff;
+
+  font-size:12px;
+  font-weight:1000;
+
+  white-space:nowrap;
+  text-overflow:ellipsis;
+
+  text-shadow:
+    0 2px 5px rgba(0,0,0,.45);
+}
+
+.home-v2-mini-copy small{
+  margin-top:5px;
+
+  color:#fff5bd;
+
+  font-size:8px;
+  font-weight:900;
+
+  text-shadow:
+    0 2px 4px rgba(0,0,0,.35);
+}
+
+
+/* =========================
+   MISSIONS
+   ========================= */
+
+.home-v2-missions{
+  padding:15px 13px;
+
+  border:1px solid #dceaf5;
+  border-radius:24px;
+
+  background:
+    linear-gradient(
+      180deg,
+      #fff,
+      #fbfdff
+    );
+
+  box-shadow:
+    0 11px 25px rgba(48,105,155,.1);
+}
+
+.home-v2-missions > header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+
+  margin-bottom:7px;
+}
+
+.home-v2-missions > header span,
+.home-v2-missions > header strong{
+  display:block;
+}
+
+.home-v2-missions > header span{
+  color:#173653;
+
+  font-size:16px;
+  font-weight:1000;
+}
+
+.home-v2-missions > header strong{
+  margin-top:3px;
+
+  color:#7990a5;
+
+  font-size:9px;
+  font-weight:850;
+}
+
+.home-v2-missions > header b{
+  padding:6px 10px;
+
+  border-radius:999px;
+
+  background:#e8f4ff;
+
+  color:#1977d5;
+
+  font-size:10px;
+}
+
+.home-v2-missions > button{
+  width:100%;
+  min-height:55px;
+
+  display:grid;
+  grid-template-columns:24px minmax(0,1fr) auto;
+  align-items:center;
+  gap:9px;
+
+  padding:0;
+
+  border:0;
+  border-top:1px solid #edf3f8;
+
+  background:transparent;
+
+  color:#29475f;
+
+  text-align:left;
+}
+
+.home-v2-missions > button i{
+  width:21px;
+  height:21px;
+
+  display:grid;
+  place-items:center;
+
+  border-radius:50%;
+
+  background:#e8f3fd;
+
+  color:#2883da;
+
+  font-size:9px;
+  font-style:normal;
+  font-weight:1000;
+}
+
+.home-v2-missions > button i.done{
+  background:#39c984;
+  color:#fff;
+}
+
+.home-v2-missions > button div{
+  min-width:0;
+}
+
+.home-v2-missions > button div span,
+.home-v2-missions > button div small{
+  display:block;
+}
+
+.home-v2-missions > button div span{
+  color:#29475f;
+
+  font-size:11px;
+  font-weight:1000;
+}
+
+.home-v2-missions > button div small{
+  margin-top:3px;
+
+  overflow:hidden;
+
+  color:#8094a6;
+
+  font-size:8px;
+  font-weight:800;
+
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+
+.home-v2-missions > button > strong{
+  color:#71869a;
+
+  font-size:9px;
+  font-weight:900;
+
+  white-space:nowrap;
+}
+
+
+/* =========================
+   INVITE WORLD
+   ========================= */
+
+.home-v2-invite{
+  position:relative;
+
+  min-height:237px;
+
+  overflow:hidden;
+
+  border:2px solid rgba(255,255,255,.92);
+  border-radius:26px;
+
+  background-image:
+    url("/assets/backgrounds/home_invite_bg.png");
+
+  background-size:cover;
+  background-position:center center;
+  background-repeat:no-repeat;
+
+  box-shadow:
+    0 14px 31px rgba(185,139,36,.16);
+
+  isolation:isolate;
+}
+
+.home-v2-invite-shade{
+  position:absolute;
+  inset:0;
+  z-index:1;
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255,249,215,.96) 0%,
+      rgba(255,247,205,.91) 54%,
+      rgba(255,247,205,.22) 78%,
+      rgba(255,255,255,.02) 100%
+    );
+}
+
+.home-v2-invite-copy{
+  position:relative;
+  z-index:3;
+
+  width:67%;
+
+  padding:18px 0 15px 15px;
+}
+
+.home-v2-invite-copy > span{
+  display:block;
+
+  color:#75551d;
+
+  font-size:11px;
+  font-weight:900;
+}
+
+.home-v2-invite-copy > strong{
+  display:block;
+
+  margin-top:3px;
+
+  color:#473015;
+
+  font-size:17px;
+  line-height:1.25;
+  font-weight:1000;
+}
+
+.home-v2-invite-copy > p{
+  margin:8px 0 9px;
+
+  color:#745c2b;
+
+  font-size:9px;
+  line-height:1.45;
+  font-weight:850;
+}
+
+.home-v2-invite-summary{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+
+  margin-bottom:9px;
+}
+
+.home-v2-invite-summary span{
+  padding:6px 8px;
+
+  border-radius:999px;
+
+  background:rgba(255,255,255,.66);
+
+  color:#715822;
+
+  font-size:8px;
+  font-weight:850;
+}
+
+.home-v2-invite-summary b{
+  color:#3f2e13;
+}
+
+.home-v2-invite-copy > button{
+  width:100%;
+  min-height:43px;
+
+  border:0;
+  border-radius:14px;
+
+  background:#fee500;
+
+  color:#3c1e1e;
+
+  font-size:12px;
+  font-weight:1000;
+
+  box-shadow:
+    0 7px 15px rgba(141,109,0,.2);
+}
+
+
+/* =========================
+   MOBILE
+   ========================= */
+
+@media (max-width:370px){
+
+  .home-v2{
+    padding-left:9px;
+    padding-right:9px;
+  }
+
+  .home-v2-header{
+    grid-template-columns:
+      52px minmax(0,1fr) 92px;
+
+    gap:7px;
+  }
+
+  .home-v2-profile-button{
+    width:52px;
+    height:52px;
+  }
+
+  .home-v2-user strong{
+    font-size:17px;
+  }
+
+  .home-v2-water-wallet{
+    padding-left:4px;
+    padding-right:4px;
+  }
+
+  .home-v2-walk-copy{
+    width:64%;
+    padding-left:11px;
+  }
+
+  .home-v2-step-number strong{
+    font-size:35px;
+  }
+
+  .home-v2-runner{
+    right:-18px;
+    width:49%;
+  }
+
+  .home-v2-stat-grid{
+    gap:5px;
+  }
+
+  .home-v2-stat-card strong{
+    font-size:11px;
+  }
+
+  .home-v2-world-grid{
+    gap:6px;
+  }
+
+  .home-v2-mini-copy strong{
+    font-size:10px;
+  }
+
+  .home-v2-world-copy{
+    width:65%;
+    padding-left:12px;
+  }
+
+  .home-v2-invite-copy{
+    width:71%;
+    padding-left:12px;
+  }
+
+}

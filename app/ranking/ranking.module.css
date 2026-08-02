@@ -1,0 +1,403 @@
+.root {
+  min-height: 100svh;
+  color: #173b66;
+  background:
+    radial-gradient(circle at 50% -8%, rgba(255, 255, 255, 0.98), transparent 34%),
+    linear-gradient(180deg, #dff3ff 0%, #eff9ff 50%, #f8fcff 100%);
+}
+
+.root * { box-sizing: border-box; }
+.root button { font: inherit; }
+
+.shell {
+  width: 100%;
+  max-width: 640px;
+  min-height: 100svh;
+  margin: 0 auto;
+  padding: max(14px, env(safe-area-inset-top)) 12px calc(112px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.header {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.backButton {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #27628f;
+  font-size: 30px;
+  line-height: 1;
+  box-shadow: 0 7px 17px rgba(45, 105, 157, 0.13);
+}
+
+.heading { min-width: 0; }
+.heading span, .heading h1 { display: block; }
+.heading span { color: #718ba1; font-size: 9px; font-weight: 900; }
+.heading h1 { margin: 2px 0 0; color: #173653; font-size: 20px; line-height: 1; font-weight: 1000; }
+
+.monthBadge {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #3176a4;
+  font-size: 9px;
+  font-weight: 1000;
+  box-shadow: 0 7px 17px rgba(45, 105, 157, 0.12);
+}
+
+.hero {
+  position: relative;
+  min-height: 355px;
+  overflow: hidden;
+  isolation: isolate;
+  border: 3px solid rgba(255, 255, 255, 0.96);
+  border-radius: 29px;
+  background: #87d9ff;
+  box-shadow: 0 17px 38px rgba(43, 105, 157, 0.17), inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+.heroBackground {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.heroShade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(12, 82, 120, 0.08), transparent 40%), linear-gradient(180deg, transparent 50%, rgba(19, 81, 46, 0.18));
+}
+
+.heroCopy {
+  position: relative;
+  z-index: 2;
+  margin: 16px;
+  max-width: 72%;
+  padding: 13px 15px;
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  border-radius: 19px;
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 22px rgba(44, 94, 103, 0.14);
+}
+
+.heroCopy > span { display: inline-flex; padding: 4px 7px; border-radius: 999px; background: #eaf8ee; color: #4d8964; font-size: 7px; letter-spacing: .3px; font-weight: 1000; }
+.heroCopy h2 { margin: 8px 0 0; color: #225b40; font-size: 24px; line-height: 1.1; font-weight: 1000; }
+.heroCopy strong { display: block; margin-top: 6px; color: #34765a; font-size: 11px; font-weight: 1000; }
+.heroCopy p { margin: 5px 0 0; color: #688378; font-size: 9px; font-weight: 850; }
+
+.participationCard {
+  position: absolute;
+  z-index: 3;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(9px);
+  box-shadow: 0 9px 20px rgba(43, 92, 107, 0.15);
+}
+
+.participationIcon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 14px; background: #e8f7eb; font-size: 22px; }
+.participationCard span, .participationCard strong { display: block; }
+.participationCard span { color: #608074; font-size: 8px; font-weight: 900; }
+.participationCard strong { margin-top: 3px; color: #345d4d; font-size: 9px; line-height: 1.45; font-weight: 1000; }
+.participationCard > b { padding: 7px 9px; border-radius: 999px; background: #dff6e6; color: #2f9b5d; font-size: 8px; white-space: nowrap; }
+
+.prizeSection, .rankingSection, .guideSection {
+  padding: 15px 12px;
+  border: 1px solid #dce9f3;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 11px 25px rgba(47, 104, 153, 0.1);
+}
+
+.sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.sectionHeading span, .sectionHeading h2 { display: block; }
+.sectionHeading span { color: #788f9f; font-size: 7px; font-weight: 900; }
+.sectionHeading h2 { margin: 3px 0 0; color: #24465f; font-size: 15px; font-weight: 1000; }
+.sectionHeading > b { padding: 6px 9px; border-radius: 999px; background: #eaf6ff; color: #2581d5; font-size: 9px; }
+
+.podiumStage { position: relative; height: 335px; overflow: hidden; border-radius: 21px; background: radial-gradient(circle at 50% 35%, rgba(255, 246, 181, 0.75), transparent 38%), linear-gradient(180deg, #f9fdff, #fff8de); }
+.podiumImage { position: absolute; z-index: 2; left: 50%; bottom: 4px; width: 92%; height: 72%; object-fit: contain; transform: translateX(-50%); filter: drop-shadow(0 15px 12px rgba(122, 84, 30, 0.18)); }
+.podiumGlow { position: absolute; z-index: 1; left: 50%; top: 3%; width: 95%; height: 78%; object-fit: contain; transform: translateX(-50%); mix-blend-mode: screen; animation: glowPulse 2.1s ease-in-out infinite; }
+
+@keyframes glowPulse {
+  0%, 100% { opacity: .4; transform: translateX(-50%) scale(.94); }
+  50% { opacity: .95; transform: translateX(-50%) scale(1.05); }
+}
+
+.prizeItem { position: absolute; z-index: 3; width: 30%; display: flex; align-items: center; flex-direction: column; text-align: center; }
+.prizeItem img { width: 100%; height: 112px; display: block; object-fit: contain; filter: drop-shadow(0 10px 8px rgba(77, 68, 36, 0.17)); }
+.prizeItem span { margin-top: 2px; padding: 4px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.88); color: #8b641c; font-size: 8px; font-weight: 1000; }
+.prizeItem strong { margin-top: 3px; color: #5d4a23; font-size: 9px; font-weight: 1000; }
+.rank1 { left: 35%; top: 18px; }
+.rank2 { left: 5%; top: 78px; }
+.rank3 { right: 5%; top: 96px; }
+.prizeNotice { margin: 9px 0 0; color: #8293a0; font-size: 7px; line-height: 1.45; text-align: center; font-weight: 800; }
+
+.rankingHeader, .rankRow, .topRankRow { display: grid; grid-template-columns: 58px minmax(0, 1fr) 130px; align-items: center; gap: 8px; }
+.rankingHeader { padding: 9px 10px; border-radius: 12px; background: #f2f8fc; color: #7a8e9d; font-size: 8px; font-weight: 900; }
+.rankingHeader span:last-child { text-align: right; }
+.rankingList { display: grid; gap: 5px; margin-top: 7px; }
+.rankRow, .topRankRow { min-height: 46px; padding: 7px 10px; border: 1px solid #e6eef4; border-radius: 13px; background: #fff; }
+.topRankRow { background: linear-gradient(90deg, #fff9dc, #fff 70%); border-color: #f1df9b; }
+.rankRow > strong, .topRankRow > strong { color: #507083; font-size: 15px; text-align: center; }
+.rankRow > span, .topRankRow > span { overflow: hidden; color: #35586d; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; font-weight: 950; }
+.rankRow > b, .topRankRow > b { color: #247bc0; font-size: 9px; text-align: right; font-weight: 1000; }
+.moreButton { width: 100%; min-height: 43px; margin-top: 10px; border: 1px solid #dce8f0; border-radius: 13px; background: #f7fbfe; color: #52788f; font-size: 9px; font-weight: 1000; }
+
+.myRankCard { display: grid; grid-template-columns: 55px 1fr 1.3fr 1fr; align-items: center; gap: 9px; padding: 14px; border: 2px solid #a8db8e; border-radius: 21px; background: linear-gradient(135deg, #efffe8, #f9fff4); box-shadow: 0 10px 22px rgba(75, 142, 70, 0.12); }
+.myRankIcon { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 17px; background: #fff; font-size: 28px; box-shadow: 0 7px 15px rgba(78, 129, 70, 0.12); }
+.myRankMain, .myRankStat { min-width: 0; }
+.myRankMain span, .myRankMain strong, .myRankMain small, .myRankStat span, .myRankStat strong, .myRankStat small { display: block; }
+.myRankMain span, .myRankStat span { color: #718b78; font-size: 7px; font-weight: 900; }
+.myRankMain strong { margin-top: 2px; color: #2f6f44; font-size: 23px; line-height: 1; font-weight: 1000; }
+.myRankStat { padding-left: 9px; border-left: 1px solid #cce6c0; }
+.myRankStat strong { margin-top: 3px; overflow: hidden; color: #2f6f44; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; font-weight: 1000; }
+.myRankMain small, .myRankStat small { margin-top: 3px; color: #82958a; font-size: 6.5px; font-weight: 800; }
+
+.guideGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.guideGrid article { min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 9px; border: 1px solid #e4edf3; border-radius: 13px; background: #f9fcfe; }
+.guideGrid span { width: 23px; height: 23px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; background: #55be73; color: #fff; font-size: 10px; font-weight: 1000; }
+.guideGrid p { margin: 0; color: #5f7787; font-size: 8px; line-height: 1.4; font-weight: 900; }
+
+.regionNotice { display: flex; align-items: flex-start; gap: 10px; padding: 13px; border: 1px solid #ecd58a; border-radius: 18px; background: linear-gradient(135deg, #fff8d5, #fffdf3); }
+.regionNotice > span { font-size: 22px; }
+.regionNotice strong, .regionNotice p { display: block; }
+.regionNotice strong { color: #6e5927; font-size: 9px; font-weight: 1000; }
+.regionNotice p { margin: 4px 0 0; color: #88784e; font-size: 7px; line-height: 1.45; font-weight: 800; }
+
+@media (max-width: 390px) {
+  .shell { padding-left: 8px; padding-right: 8px; }
+  .header { grid-template-columns: 42px minmax(0, 1fr); }
+  .monthBadge { grid-column: 1 / -1; justify-self: stretch; text-align: center; }
+  .hero { min-height: 370px; }
+  .heroCopy { max-width: calc(100% - 32px); }
+  .participationCard { grid-template-columns: 38px minmax(0, 1fr); }
+  .participationCard > b { grid-column: 1 / -1; justify-self: stretch; text-align: center; }
+  .podiumStage { height: 310px; }
+  .prizeItem img { height: 96px; }
+  .rankingHeader, .rankRow, .topRankRow { grid-template-columns: 45px minmax(0, 1fr) 105px; }
+  .myRankCard { grid-template-columns: 48px 1fr; }
+  .myRankStat { padding-left: 0; border-left: 0; }
+  .guideGrid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .podiumGlow { animation: none !important; }
+}
+
+/* =====================================================
+   RANKING LARGE TEXT FINAL
+   PC와 모바일 모두 읽기 쉽게 확대한 최종 설정
+   ===================================================== */
+
+.heading span {
+  font-size: 12px;
+}
+
+.heading h1 {
+  font-size: 25px;
+  line-height: 1.15;
+}
+
+.monthBadge {
+  font-size: 12px;
+}
+
+.heroCopy > span {
+  font-size: 10px;
+}
+
+.heroCopy h2 {
+  font-size: 30px;
+}
+
+.heroCopy strong {
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.regionLine {
+  display: block;
+  margin-top: 7px;
+  color: #2e7555;
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.heroCopy p {
+  font-size: 12px;
+}
+
+.participationCard span {
+  font-size: 11px;
+}
+
+.participationCard strong {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.participationCard > b {
+  font-size: 11px;
+}
+
+.sectionHeading span {
+  font-size: 10px;
+}
+
+.sectionHeading h2 {
+  font-size: 22px;
+}
+
+.sectionHeading > b {
+  font-size: 12px;
+}
+
+.prizeItem span {
+  font-size: 11px;
+}
+
+.prizeItem strong {
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.prizeNotice {
+  font-size: 10px;
+}
+
+.rankingHeader {
+  font-size: 11px;
+}
+
+.rankRow,
+.topRankRow {
+  min-height: 55px;
+}
+
+.rankRow > strong,
+.topRankRow > strong {
+  font-size: 19px;
+}
+
+.rankRow > span,
+.topRankRow > span {
+  font-size: 14px;
+}
+
+.rankRow > b,
+.topRankRow > b {
+  font-size: 12px;
+}
+
+.moreButton {
+  min-height: 48px;
+  font-size: 13px;
+}
+
+.myRankMain span,
+.myRankStat span {
+  font-size: 10px;
+}
+
+.myRankMain strong {
+  font-size: 28px;
+}
+
+.myRankStat strong {
+  font-size: 20px;
+}
+
+.myRankMain small,
+.myRankStat small {
+  font-size: 9px;
+}
+
+.guideGrid p {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.regionNotice strong {
+  font-size: 12px;
+}
+
+.regionNotice p {
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+@media (max-width: 390px) {
+  .heading span {
+    font-size: 10px;
+  }
+
+  .heading h1 {
+    font-size: 21px;
+  }
+
+  .monthBadge {
+    font-size: 11px;
+  }
+
+  .heroCopy h2 {
+    font-size: 25px;
+  }
+
+  .heroCopy strong {
+    font-size: 13px;
+  }
+
+  .regionLine {
+    font-size: 12px;
+  }
+
+  .participationCard strong {
+    font-size: 11px;
+  }
+
+  .sectionHeading h2 {
+    font-size: 19px;
+  }
+
+  .rankRow > span,
+  .topRankRow > span {
+    font-size: 12px;
+  }
+
+  .rankRow > b,
+  .topRankRow > b {
+    font-size: 10px;
+  }
+
+  .guideGrid p {
+    font-size: 10px;
+  }
+}

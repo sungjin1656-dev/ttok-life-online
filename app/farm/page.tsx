@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import styles from "./farm.module.css";
+
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Guard } from "@/components/ui/Guard";
@@ -9,10 +11,20 @@ import { useGame } from "@/context/GameContext";
 import { getCrop, wateringCost } from "@/lib/crops";
 import { plants } from "@/lib/plants";
 
+type FarmSound =
+  | "water"
+  | "grow"
+  | "success"
+  | "reward";
 
+const SOUND_PATHS: Record<FarmSound, string> = {
+  water: "/sounds/water.mp3",
+  grow: "/sounds/grow.mp3",
+  success: "/sounds/success.mp3",
+  reward: "/sounds/reward.mp3",
+};
 
 function getStage(growth: number) {
-
   if (growth >= 100) return 10;
   if (growth >= 90) return 9;
   if (growth >= 80) return 8;
@@ -24,963 +36,647 @@ function getStage(growth: number) {
   if (growth >= 20) return 2;
 
   return 1;
-
 }
 
-
-
-/*
-  행운의 화분 성장 단계 문구
-*/
 function stageText(stage: number) {
-
-  const list = [
-
-    "빈 화분을 준비했어요",
-
-    "화분에 흙을 채웠어요",
-
+  const messages = [
+    "행운의 화분을 준비했어요",
+    "화분에 건강한 흙을 채웠어요",
     "작은 새싹이 올라왔어요",
-
     "새싹의 잎이 자라고 있어요",
-
-    "잎이 더욱 풍성해졌어요",
-
+    "초록 잎이 더욱 풍성해졌어요",
     "줄기가 튼튼하게 자라고 있어요",
-
-    "꽃봉오리가 생겼어요",
-
-    "예쁜 꽃이 피었어요",
-
-    "행운의 꽃이 빛나고 있어요",
-
-    "행운의 화분이 완성됐어요"
-
+    "행운의 꽃봉오리가 생겼어요",
+    "예쁜 꽃이 피기 시작했어요",
+    "행운의 꽃이 반짝이고 있어요",
+    "행운의 화분이 완성됐어요!",
   ];
 
-
-  return list[stage - 1] ?? list[0];
-
+  return messages[stage - 1] ?? messages[0];
 }
 
-
-
-/*
-  행운의 화분 이미지 매칭
-
-  Stage 1  → stage01.png
-  Stage 2  → stage02.png
-  Stage 10 → stage10.png
-*/
 function getPotImage(stage: number) {
+  const safeStage = Math.min(10, Math.max(1, stage));
+  const stageNumber = String(safeStage).padStart(2, "0");
 
-  const safeStage = Math.min(
-    10,
-    Math.max(1, stage)
-  );
-
-
-  const stageNumber = String(
-    safeStage
-  ).padStart(2, "0");
-
-
- return `/crops/lucky-pot/stage${stageNumber}.png`;
-
+  return `/crops/lucky-pot/stage${stageNumber}.png`;
 }
 
+function characterAsset(
+    characterId: string,
+    isWatering: boolean
+) {
+    const isBoy =
+        characterId === "hajun" ||
+        characterId === "minjun";
 
+    if (isBoy) {
+        return isWatering
+            ? "/assets/characters/boy-farm-watering.png"
+            : "/assets/characters/boy-farm-standing.png";
+    }
 
-
+    return isWatering
+        ? "/assets/characters/girl-farm-watering.png"
+        : "/assets/characters/girl-farm-standing.png";
+}
 
 export default function FarmPage() {
+  const router = useRouter();
+  const { game, patchGame } = useGame();
 
+  const audioRefs = useRef<
+    Partial<Record<FarmSound, HTMLAudioElement>>
+  >({});
 
- const router = useRouter();
+  const [isWatering, setIsWatering] =
+    useState(false);
 
-const [isWatering, setIsWatering] = useState(false);
-const [showWaterEffect, setShowWaterEffect] = useState(false);
-const [isCropPopping, setIsCropPopping] = useState(false);
-const [showCompleteEffect, setShowCompleteEffect] = useState(false);
-const [haniAssetsReady, setHaniAssetsReady] = useState(false);
-const [showWaterLackMessage, setShowWaterLackMessage] = useState(false);
+  const [showWaterEffect, setShowWaterEffect] =
+    useState(false);
 
-useEffect(() => {
-  let cancelled = false;
+  const [isPlantPopping, setIsPlantPopping] =
+    useState(false);
 
-  const preloadHaniImages = async () => {
-    const sources = [
-      "/character/hani_idle.png",
-      "/character/hani_watering.png",
-      "/character/hani_reward.png",
-    ];
+  const [showCompleteEffect, setShowCompleteEffect] =
+    useState(false);
 
-    try {
-      await Promise.all(
-        sources.map(
-          (src) =>
-            new Promise<void>((resolve) => {
-              const image = new Image();
+  const [showWaterLackMessage, setShowWaterLackMessage] =
+    useState(false);
 
-              image.onload = () => resolve();
-              image.onerror = () => resolve();
-              image.src = src;
-
-              if (image.complete) {
-                resolve();
-              }
-            })
-        )
-      );
-    } finally {
-      if (!cancelled) {
-        setHaniAssetsReady(true);
-      }
-    }
-  };
-
-  preloadHaniImages();
-
-  return () => {
-    cancelled = true;
-  };
-}, []);
-
-const {
-  game,
-  patchGame,
-} = useGame();
-
-
-const currentPlant =
-  plants.find(
-    (item) =>
-      item.id === game.currentCropId
+  const currentPlant = plants.find(
+    (item) => item.id === game.currentCropId,
   );
 
+  const crop = getCrop(game.currentCropId);
+  const cost = wateringCost(crop);
 
-const crop = getCrop(game.currentCropId);
+  const waterings =
+    game.cropWaterings ?? 0;
 
-const isLocked =
-  currentPlant
-    ? game.level < currentPlant.requiredLevel
-    : false;
-
-const cost = wateringCost(crop);
-
-const waterings = game.cropWaterings ?? 0;
-
-const growth = Math.min(
-  100,
-  Math.round(
-    (waterings / crop.growthCount) * 100
-  )
-);
-
-
+  const growth = Math.min(
+    100,
+    Math.round(
+      (waterings / crop.growthCount) * 100,
+    ),
+  );
 
   const stage = getStage(growth);
 
-
-
   const ready =
-
     waterings >= crop.growthCount;
 
+  const isLocked = currentPlant
+    ? game.level < currentPlant.requiredLevel
+    : false;
 
+  const remainingWaterings = Math.max(
+    0,
+    crop.growthCount - waterings,
+  );
 
+  const statusMessage = useMemo(() => {
+    if (isLocked) {
+      return `레벨 ${currentPlant?.requiredLevel ?? 1}부터 이용할 수 있어요`;
+    }
 
+    if (ready) {
+      return "행운의 꽃이 완성됐어요! 보상을 선택해보세요.";
+    }
 
-  const waterCrop = () => {
+    if (isWatering) {
+      return "행운의 화분에 물을 주고 있어요!";
+    }
 
-  if (
-  ready ||
-  isWatering ||
-  isLocked
-) {
-  return;
-}
+    if (game.water < cost) {
+      return "물방울을 모으면 다시 물을 줄 수 있어요.";
+    }
 
+    return stageText(stage);
+  }, [
+    currentPlant?.requiredLevel,
+    game.water,
+    isLocked,
+    isWatering,
+    ready,
+    stage,
+    cost,
+  ]);
 
-if (game.water < cost) {
+  const playSound = (sound: FarmSound) => {
+    try {
+      let audio = audioRefs.current[sound];
 
-  setShowWaterLackMessage(true);
+      if (!audio) {
+        audio = new Audio(SOUND_PATHS[sound]);
+        audio.preload = "auto";
+        audio.volume = 0.75;
+        audioRefs.current[sound] = audio;
+      }
 
-  window.setTimeout(() => {
-    setShowWaterLackMessage(false);
-  }, 2500);
+      audio.currentTime = 0;
 
-  return;
-}
+      void audio.play().catch(() => {
+        // 사운드 파일이 아직 없거나 브라우저가 재생을 막아도
+        // 게임 동작은 계속 진행합니다.
+      });
+    } catch {
+      // 오디오 미지원 환경에서도 게임 동작 유지
+    }
+  };
 
+  const vibrate = (pattern: number | number[]) => {
+    if (
+      typeof navigator !== "undefined" &&
+      "vibrate" in navigator
+    ) {
+      navigator.vibrate(pattern);
+    }
+  };
 
+  useEffect(() => {
+    return () => {
+      Object.values(audioRefs.current).forEach((audio) => {
+        audio?.pause();
+      });
+    };
+  }, []);
 
-    /*
-      물주기 연출 시작
+  const showLackMessage = () => {
+    setShowWaterLackMessage(true);
+    vibrate([30, 35, 30]);
 
-      1) 하니 이미지를 watering으로 변경
-      2) 물방울 3개 표시
-      3) 물방울이 화분에 닿을 때 성장 처리
-      4) 연출 종료 후 idle로 복귀
-    */
+    window.setTimeout(() => {
+      setShowWaterLackMessage(false);
+    }, 2400);
+  };
+
+  const waterPlant = () => {
+    if (ready || isWatering || isLocked) {
+      return;
+    }
+
+    if (game.water < cost) {
+      showLackMessage();
+      return;
+    }
+
+    playSound("water");
+    vibrate(25);
+
     setIsWatering(true);
-
     setShowWaterEffect(true);
 
-
-
-    const next = Math.min(
-
+    const nextWaterings = Math.min(
       crop.growthCount,
-
-      waterings + 1
-
+      waterings + 1,
     );
 
-
-
-    /*
-      물방울이 화분에 닿는 타이밍에 성장 처리
-    */
     window.setTimeout(() => {
+      playSound("grow");
+      vibrate([20, 30, 35]);
 
-  // 화분 POP 시작
-  setIsCropPopping(true);
+      setIsPlantPopping(true);
 
- patchGame({
+      patchGame({
+        water: game.water - cost,
 
-  water:
-    game.water - cost,
+        cropWaterings:
+          nextWaterings,
 
-  cropWaterings: next,
+        cropGrowth: Math.round(
+          (nextWaterings / crop.growthCount) * 100,
+        ),
 
-    cropGrowth:
-      Math.round(
-        (next / crop.growthCount) * 100
-      ),
+        cropName:
+          crop.name,
 
-    cropName:
-      crop.name,
+        cropEmoji:
+          crop.emoji,
+      });
 
-    cropEmoji:
-      crop.emoji
+      if (
+        nextWaterings >= crop.growthCount
+      ) {
+        window.setTimeout(() => {
+          playSound("success");
+          vibrate([40, 50, 70]);
 
-  });
+          setShowCompleteEffect(true);
+        }, 200);
 
-  /*
-    마지막 물주기로 100%가 되었을 때만
-    완성 반짝임과 안내 문구 표시
-  */
-  if (next >= crop.growthCount) {
+        window.setTimeout(() => {
+          setShowCompleteEffect(false);
+        }, 2300);
+      }
+
+      window.setTimeout(() => {
+        setIsPlantPopping(false);
+      }, 850);
+    }, 1800);
 
     window.setTimeout(() => {
-
-      setShowCompleteEffect(true);
-
-    }, 250);
-
-    window.setTimeout(() => {
-
-      setShowCompleteEffect(false);
-
-    }, 2200);
-
-  }
-
-  // POP 종료
-  window.setTimeout(() => {
-
-    setIsCropPopping(false);
-
-  }, 500);
-
-}, 650);
-
-
-
-    /*
-      전체 물주기 연출 종료
-    */
-    window.setTimeout(() => {
-
       setShowWaterEffect(false);
-
       setIsWatering(false);
-
-    }, 1200);
-
-
+    }, 2800);
   };
 
-
-
-
-
-  const harvestCrop = () => {
-
-
-    if (!ready)
-
+  const receiveReward = () => {
+    if (!ready) {
       return;
+    }
 
+    playSound("reward");
+    vibrate([35, 35, 60]);
 
+    const reward = {
+      id: `reward-${Date.now()}`,
+      productId: crop.id,
+      productName: crop.name,
+      emoji: crop.emoji,
+      quantity: "1개",
+      status: "보관 중" as const,
+      deliveryAvailable: true,
+      harvestedAt:
+        new Date().toLocaleDateString("ko-KR"),
+    };
 
     patchGame({
+      cropGrowth: 0,
+      cropWaterings: 0,
 
-  cropGrowth: 0,
+      harvestedCrops: {
+        ...(game.harvestedCrops ?? {}),
 
-  cropWaterings: 0,
+        [crop.id]:
+          (game.harvestedCrops?.[crop.id] ?? 0) + 1,
+      },
 
-
-  harvestedCrops: {
-
-    ...(game.harvestedCrops ?? {}),
-
-    [crop.id]:
-      (game.harvestedCrops?.[crop.id] ?? 0) + 1
-
-  },
-
-
-  
-
-rewards: [
-
- {
-  id: `reward-${Date.now()}`,
-
-  productId: crop.id,
-
-  productName: crop.name,
-
-  emoji: crop.emoji,
-
-  quantity:"1개",
-
-  status:"보관 중",
-
-  deliveryAvailable:true,
-
-  harvestedAt:
-    new Date().toLocaleDateString("ko-KR"),
- },
-
-]
-
-});
-
-
+      rewards: [
+        ...(game.rewards ?? []),
+        reward,
+      ],
+    });
 
     router.push("/rewards");
-
-
   };
 
+  const mainAction = () => {
+    if (isLocked) {
+      return;
+    }
 
+    if (ready) {
+      receiveReward();
+      return;
+    }
 
-
+    waterPlant();
+  };
 
   return (
-
     <Guard>
+      <main
+        className={`${styles.scope} farm-master-v2`}
+      >
+        <section className="farm-master-v2-shell">
 
+          {/* 상단 HUD */}
 
-      <main className="farm-world-v40">
+          <header className="farm-master-v2-header">
+            <button
+              type="button"
+              className="farm-master-v2-back"
+              onClick={() => router.push("/home")}
+              aria-label="홈으로 돌아가기"
+            >
+              ‹
+            </button>
 
-
-        <div className="farm-world-v40-phone">
-
-
-
-          <header className="farm-v40-header">
-
-
-            <div>
-
-
-              <h1>
-
-                내 농장
-
-              </h1>
-
-
-              <button
-
-                type="button"
-
-                onClick={() =>
-
-                  router.push("/crops")
-
-                }
-
-              >
-
-                작물 선택
-
-              </button>
-
-
+            <div className="farm-master-v2-heading">
+              <span>나의 작은 정원</span>
+              <h1>행운의 화분</h1>
             </div>
 
+            <div className="farm-master-v2-wallet">
+              <span aria-hidden="true">💧</span>
 
-
-            <div className="farm-v40-water">
-
-              💧 {game.water.toLocaleString()}
-
+              <strong>
+                {game.water.toLocaleString()}
+              </strong>
             </div>
-
-
           </header>
 
 
+          {/* 메인 정원 게임 장면 */}
 
+          <section className="farm-master-v2-world">
+            <img
+              src="/assets/backgrounds/home_farm_bg.png"
+              className="farm-master-v2-background"
+              alt=""
+            />
 
+            <div className="farm-master-v2-sun-glow" />
 
-          <section className="farm-v40-world">
-
-
-
-            {/* BACKGROUND MASTER */}
-
-            <div className="farm-background">
-
-              <img
-
-                src="/farm/background/farm_world_bg.png"
-
-                className="farm-bg-world"
-
-                alt="farm background"
-
-              />
-
-            </div>
-
-
-
-            {/* MISSION */}
-
-            {
-  showWaterLackMessage && (
-
-    <div className="farm-water-lack-message">
-
-      <strong>
-        💧 물방울이 부족해요
-      </strong>
-
-      <span>
-        현재 {game.water}개 /
-        필요 {cost}개
-      </span>
-
-      <small>
-        걷기 또는 쇼핑으로
-        물방울을 모아보세요
-      </small>
-
-    </div>
-
-  )
-}
-
-            <div className="farm-v40-mission">
-
+            <div className="farm-master-v2-stage-badge">
+              <span>STAGE</span>
 
               <strong>
-
-                오늘의 미션
-
+                {String(stage).padStart(2, "0")}
               </strong>
-
-
-              <span>
-
-                💧 물주기
-
-              </span>
-
-
-              <small>
-
-                {waterings}/{crop.growthCount}
-
-              </small>
-
-
             </div>
 
-
-
-
-
-            {/* EVENT */}
-
-            <div className="farm-v40-event">
-
-
-              🎁
-
-
-              <small>
-
-                이벤트
-
-              </small>
-
-
-            </div>
-
-
-
-
-
-            {/* CROP FIELD */}
-
-           <div className="farm-v40-field">
-
- <div
-  className={`farm-v40-crop stage-${stage} ${
-    isCropPopping ? "crop-pop" : ""
+           <div
+  className={`farm-master-v2-character ${
+    isWatering ? "watering" : "standing"
   }`}
 >
-
-    <img
-      src={getPotImage(stage)}
-      alt={`lucky pot stage ${stage}`}
-    />
-
-  </div>
-
-  {/* 100% COMPLETE EFFECT */}
-
-  {
-    showCompleteEffect && (
-
-      <div
-        className="farm-complete-effect"
-        aria-live="polite"
-      >
-
-        <div
-          className="farm-complete-sparkles"
-          aria-hidden="true"
-        >
-
-          <span>✨</span>
-          <span>✨</span>
-          <span>✨</span>
-          <span>✨</span>
-          <span>✨</span>
-
-        </div>
-
-        <div className="farm-complete-message">
-
-          <strong>
-            행운의 화분 완성!
-          </strong>
-
-          <span>
-            수확 보상을 받아보세요
-          </span>
-
-        </div>
-
-      </div>
-
-    )
-  }
-
-  {/* WATER DROP EFFECT */}
-
-  {
-    showWaterEffect && (
-
-      <div
-        className="farm-water-effect"
-        aria-hidden="true"
-      >
-
-        <img
-          src="/effects/water_drop01.png"
-          className="farm-water-drop farm-water-drop-1"
-          alt=""
-        />
-
-        <img
-          src="/effects/water_drop02.png"
-          className="farm-water-drop farm-water-drop-2"
-          alt=""
-        />
-
-        <img
-          src="/effects/water_drop03.png"
-          className="farm-water-drop farm-water-drop-3"
-          alt=""
-        />
-
-        <img
-          src="/effects/water_drop01.png"
-          className="farm-water-drop farm-water-drop-1"
-          alt=""
-        />
-
-        <img
-          src="/effects/water_drop02.png"
-          className="farm-water-drop farm-water-drop-2"
-          alt=""
-        />
-
-        <img
-          src="/effects/water_drop01.png"
-          className="farm-water-drop farm-water-drop-1"
-          alt=""
-        />
-
-        <img
-          src="/effects/water_drop02.png"
-          className="farm-water-drop farm-water-drop-2"
-          alt=""
-        />
-
-        <img
-          src="/effects/water_drop01.png"
-          className="farm-water-drop farm-water-drop-1"
-          alt=""
-        />
-
-        <img
-          src="/effects/water_drop02.png"
-          className="farm-water-drop farm-water-drop-2"
-          alt=""
-        />
-
-
-      </div>
-
-    )
-  }
-
-
-
-  {/* HANI */}
-
-  <div
-    className={`farm-hani ${isWatering ? "watering" : "idle"}`}
-  >
-
-    <img
-      src={
+              <img
+    src={characterAsset(
+        game.characterId,
         isWatering
-          ? "/character/hani_watering.png"
-          : "/character/hani_idle.png"
-      }
-      alt={isWatering ? "물을 주는 하니" : "하니"}
-    />
-
-  </div>
-
-</div>
-
-
-          </section>
-
-
-
-
-
-          <section className="farm-v40-panel">
-
-
-  <div className="farm-v40-title">
-
-
-    <div className="farm-title-info">
-
-
-      <img
-        src="/crops/lucky-pot/stage10.png"
-        alt="행운의 화분"
-        className="farm-title-pot"
-      />
-
-
-      <div>
-
-        <h2>
-          {isLocked
-            ? "🔒 잠금 작물"
-            : "🌸 행운의 화분 키우기"}
-        </h2>
-
-
-        <p>
-         💧 물방울로 성장시키고
-          <br />
-          특별한 보상을 받아보세요
-        </p>
-
-
-      </div>
-
-
-    </div>
-
-
-
-    <button
-      type="button"
-      onClick={
-        isLocked
-          ? undefined
-          : ready
-            ? harvestCrop
-            : waterCrop
-      }
-      disabled={
-        isLocked ||
-        (!ready && (isWatering || !haniAssetsReady))
-      }
-    >
-
-      {
-        isLocked
-          ? `🔒 LV.${currentPlant?.requiredLevel} 필요`
-          : ready
-            ? "수확하기"
-            : !haniAssetsReady
-              ? "준비 중..."
-              : isWatering
-                ? "물을 주는 중..."
-                : <>
-                    💧 물주기 {cost}
-                  </>
-      }
-
-    </button>
-
-
-  </div>
-
-
-
-
-
-            <div className="farm-v40-growth">
-
-
-              성장률 {growth}%
-
-
-              ·
-
-
-              {waterings}/{crop.growthCount}
-
-
+    )}
+    alt="농장 캐릭터"
+/>
             </div>
 
+            <div
+              className={`farm-master-v2-pot ${
+                isPlantPopping ? "plant-pop" : ""
+              }`}
+            >
+              <div className="farm-master-v2-pot-glow" />
 
-
-
-
-            <div className="farm-v40-progress">
-
-
-              <i
-
-                style={{
-
-                  width: `${growth}%`
-
-                }}
-
+              <img
+                src={getPotImage(stage)}
+                alt={`행운의 화분 ${stage}단계`}
               />
-
-
             </div>
 
 
+            {/* 물주기 효과 */}
+
+            {showWaterEffect && (
+              <div
+                className="farm-master-v2-water-effect"
+                aria-hidden="true"
+              >
+                <span className="drop drop-1">💧</span>
+                <span className="drop drop-2">💧</span>
+                <span className="drop drop-3">💧</span>
+                <span className="drop drop-4">💧</span>
+
+                <span className="spark spark-1">✨</span>
+                <span className="spark spark-2">✨</span>
+                <span className="spark spark-3">✨</span>
+              </div>
+            )}
 
 
+            {/* 100% 완료 효과 */}
 
-            <div className="farm-v40-stages">
+            {showCompleteEffect && (
+              <div
+                className="farm-master-v2-complete-effect"
+                aria-live="polite"
+              >
+                <div aria-hidden="true">
+                  ✨ 🌸 ✨
+                </div>
 
+                <strong>
+                  행운의 화분 완성!
+                </strong>
 
-              {
-
-                Array.from(
-
-                  { length: 10 },
-
-                  (_, index) => index + 1
-
-                )
-
-                  .map(
-
-                    (item) => (
-
-                      <div
-
-                        key={item}
-
-                        className={
-
-                          stage >= item
-
-                            ?
-
-                            "active"
-
-                            :
-
-                            ""
-
-                        }
-
-                      >
+                <span>
+                  보상을 선택할 수 있어요
+                </span>
+              </div>
+            )}
 
 
-                        <img
+            {/* 상태 말풍선 */}
 
-                          src={getPotImage(item)}
+            <div className="farm-master-v2-message">
+              <strong>
+                {ready
+                  ? "행운의 꽃 완성!"
+                  : `성장 중 · ${growth}%`}
+              </strong>
 
-                          alt={`stage ${item}`}
-
-                        />
-
-
-                        <small>
-
-                          {item * 10}%
-
-                        </small>
-
-
-                      </div>
-
-                    )
-
-                  )
-
-              }
-
-
+              <span>
+                {statusMessage}
+              </span>
             </div>
 
 
+            {/* 물방울 부족 안내 */}
 
+            {showWaterLackMessage && (
+              <div
+                className="farm-master-v2-lack"
+                role="alert"
+              >
+                <strong>
+                  💧 물방울이 부족해요
+                </strong>
 
+                <span>
+                  현재 {game.water.toLocaleString()}개
+                  · 필요 {cost.toLocaleString()}개
+                </span>
 
-            <p className="farm-v40-info">
-
-
-              💧 마법 
-
-물방울 30개 = 성장 에너지 +1
-
-
-              <br />
-
-
-              식물을 성장시키고
-수확 보상을 받아보세요
-
-
-            </p>
-
-
-
+                <small>
+                  걷기 또는 쇼핑으로 물방울을
+                  모아보세요.
+                </small>
+              </div>
+            )}
           </section>
 
 
+          {/* 성장 정보 패널 */}
+
+          <section className="farm-master-v2-control">
+            <div className="farm-master-v2-control-header">
+              <div>
+                <span>현재 성장률</span>
+
+                <strong>
+                  {growth}%
+                </strong>
+              </div>
+
+              <div>
+                <span>남은 물주기</span>
+
+                <strong>
+                  {remainingWaterings}회
+                </strong>
+              </div>
+            </div>
+
+            <div
+              className="farm-master-v2-progress"
+              aria-label={`성장률 ${growth}%`}
+            >
+              <i style={{ width: `${growth}%` }} />
+
+              <b
+                style={{
+                  left: `calc(${Math.min(
+                    96,
+                    Math.max(4, growth),
+                  )}% - 14px)`,
+                }}
+              >
+                🌸
+              </b>
+            </div>
+
+            <div className="farm-master-v2-availability">
+              <span aria-hidden="true">⏱️</span>
+
+              <div>
+                <small>다음 물주기</small>
+
+                <strong>
+                  {ready
+                    ? "성장 완료"
+                    : isWatering
+                      ? "물을 주는 중..."
+                      : "지금 물주기 가능"}
+                </strong>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={`farm-master-v2-action ${
+                ready ? "reward" : ""
+              }`}
+              onClick={mainAction}
+              disabled={
+                isLocked ||
+                (!ready && isWatering)
+              }
+            >
+              {isLocked ? (
+                <>
+                  🔒 레벨{" "}
+                  {currentPlant?.requiredLevel ?? 1}
+                  필요
+                </>
+              ) : ready ? (
+                <>
+                  <span aria-hidden="true">🎁</span>
+                  보상 선택하기
+                </>
+              ) : isWatering ? (
+                <>
+                  <span aria-hidden="true">💧</span>
+                  물을 주는 중...
+                </>
+              ) : (
+                <>
+                  <span aria-hidden="true">💧</span>
+                  물주기
+                  <b>{cost.toLocaleString()}</b>
+                </>
+              )}
+            </button>
+
+            {!ready && (
+              <p className="farm-master-v2-cost-guide">
+                물방울 {cost.toLocaleString()}개를 사용하면
+                다음 성장 단계로 이동합니다.
+              </p>
+            )}
+          </section>
 
 
+          {/* 성장 단계 */}
 
-          
+          <section className="farm-master-v2-stages">
+            <header>
+              <div>
+                <span>행운의 화분 성장 기록</span>
 
-          <style>{`
+                <strong>
+                  10단계까지 정성껏 키워보세요
+                </strong>
+              </div>
 
-            /*
-              물방울 효과 위치
+              <b>
+                {stage}/10
+              </b>
+            </header>
 
-              left: 화분 기준 좌우 위치
-              bottom: 화분 기준 높이
-            */
-            .farm-water-effect {
+            <div className="farm-master-v2-stage-list">
+              {Array.from(
+                { length: 10 },
+                (_, index) => index + 1,
+              ).map((item) => {
+                const active =
+                  stage >= item;
 
+                const current =
+                  stage === item;
 
-            }
-            .farm-water-lack-message {
+                return (
+                  <div
+                    key={item}
+                    className={[
+                      active ? "active" : "",
+                      current ? "current" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
+                    <div>
+                      <img
+                        src={getPotImage(item)}
+                        alt={`${item}단계`}
+                      />
 
-  position: absolute;
+                      {active && (
+                        <i aria-hidden="true">
+                          ✓
+                        </i>
+                      )}
+                    </div>
 
-  left: 50%;
-
-  top: 120px;
-
-  transform: translateX(-50%);
-
-  background: white;
-
-  padding: 16px;
-
-  border-radius: 16px;
-
-  text-align: center;
-
-  z-index: 20;
-
-  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-
-}
-
-
-.farm-water-lack-message strong {
-
-  display:block;
-
-}
-
-
-.farm-water-lack-message span {
-
-  display:block;
-
-  margin-top:6px;
-
-}
-
-
-.farm-water-lack-message small {
-
-  display:block;
-
-  margin-top:8px;
-
-}
-
-          `}</style>
+                    <small>
+                      {item * 10}%
+                    </small>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
 
 
+          {/* 하단 안내 */}
+
+          <section className="farm-master-v2-guide">
+            <span aria-hidden="true">🌸</span>
+
+            <div>
+              <strong>
+                행운의 꽃을 완성해보세요
+              </strong>
+
+              <p>
+                성장률이 100%가 되면 보상함에서
+                원하는 보상을 선택할 수 있습니다.
+              </p>
+            </div>
+          </section>
 
           <BottomNav />
-
-
-
-        </div>
-
-
+        </section>
       </main>
-
-
     </Guard>
-
   );
-
 }
