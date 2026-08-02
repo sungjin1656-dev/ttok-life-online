@@ -663,25 +663,35 @@ export async function POST(
       },
     );
 
-    const saveText =
-      await saveResponse.text();
+const saveText =
+  await saveResponse.text();
 
-    if (!saveResponse.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message:
-            "농장 상태 저장에 실패했습니다.",
-          supabase_status:
-            saveResponse.status,
-          detail:
-            saveText,
-        },
-        {
-          status: 502,
-        },
-      );
-    }
+console.log(
+  "[FARM PATCH STATUS]",
+  saveResponse.status,
+);
+
+console.log(
+  "[FARM PATCH BODY]",
+  saveText,
+);
+
+if (!saveResponse.ok) {
+  return NextResponse.json(
+    {
+      ok: false,
+      message:
+        "농장 상태 저장에 실패했습니다.",
+      supabase_status:
+        saveResponse.status,
+      detail:
+        saveText,
+    },
+    {
+      status: 502,
+    },
+  );
+}
 
     const savedRows = saveText
       ? (JSON.parse(
