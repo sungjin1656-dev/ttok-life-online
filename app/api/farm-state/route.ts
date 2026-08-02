@@ -221,7 +221,7 @@ async function ensureFarmState(
 
         headers: getSupabaseHeaders(
           config.secretKey,
-          "resolution=merge-duplicates,return=minimal",
+          "resolution=ignore-duplicates,return=minimal",
         ),
 
         body: JSON.stringify({
