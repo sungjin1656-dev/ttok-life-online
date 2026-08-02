@@ -32,6 +32,30 @@ type FarmStateApiResponse = {
   detail?: string;
 };
 
+type FarmHarvestApiResponse = {
+  ok?: boolean;
+  code?: string;
+  message?: string;
+  member_id?: string;
+  game_state?: {
+    points?: number;
+    water?: number;
+  };
+  farm_state?: {
+    growth?: number;
+    water?: number;
+    stage?: number;
+    water_count?: number;
+    harvest_ready?: boolean;
+  };
+  inventory?: {
+    item_code?: string;
+    quantity?: number;
+  };
+  transaction_key?: string;
+  detail?: unknown;
+};
+
 function normalizeFarmInteger(
   value: unknown,
   fallback: number,
@@ -204,13 +228,11 @@ async function saveFarmState(
   return result.farm_state;
 }
 
-async function addInventoryReward(
+async function requestFarmHarvest(
   memberId: string,
-  itemCode: string,
-  quantity = 1,
-): Promise<void> {
+): Promise<FarmHarvestApiResponse> {
   const response = await fetch(
-    "/api/inventory-state",
+    "/api/farm-harvest",
     {
       method: "POST",
 
@@ -221,9 +243,6 @@ async function addInventoryReward(
 
       body: JSON.stringify({
         member_id: memberId,
-        item_code: itemCode,
-        quantity,
-        action: "add",
       }),
 
       cache: "no-store",
@@ -233,32 +252,33 @@ async function addInventoryReward(
   const text =
     await response.text();
 
-  let result: {
-    ok?: boolean;
-    message?: string;
-    detail?: string;
-  } = {};
+  let result: FarmHarvestApiResponse = {};
 
   try {
     result = text
-      ? JSON.parse(text)
+      ? (JSON.parse(
+          text,
+        ) as FarmHarvestApiResponse)
       : {};
   } catch {
     throw new Error(
-      `보관함 저장 응답이 올바르지 않습니다. HTTP ${response.status}`,
+      `수확 응답이 올바르지 않습니다. HTTP ${response.status}`,
     );
   }
 
   if (
     !response.ok ||
-    !result.ok
+    !result.ok ||
+    !result.game_state ||
+    !result.farm_state
   ) {
     throw new Error(
-      result.detail ||
-        result.message ||
-        "보관함 저장에 실패했습니다.",
+      result.message ||
+        "수확 처리에 실패했습니다.",
     );
   }
+
+  return result;
 }
 
 type FarmSound =
@@ -384,6 +404,11 @@ export default function FarmPage() {
     useState(false);
 
   const [
+    isHarvesting,
+    setIsHarvesting,
+  ] = useState(false);
+
+  const [
     showWaterEffect,
     setShowWaterEffect,
   ] = useState(false);
@@ -462,6 +487,10 @@ export default function FarmPage() {
       }부터 이용할 수 있어요`;
     }
 
+    if (isHarvesting) {
+      return "서버에서 안전하게 수확을 처리하고 있어요.";
+    }
+
     if (ready) {
       return `행운의 꽃이 완성됐어요! 수확하면 ${HARVEST_POINT_REWARD}P를 받을 수 있어요.`;
     }
@@ -480,6 +509,7 @@ export default function FarmPage() {
     farmSyncError,
     farmSyncReady,
     game.water,
+    isHarvesting,
     isLocked,
     isWatering,
     ready,
@@ -690,23 +720,6 @@ export default function FarmPage() {
     setFarmSyncReady(false);
     setFarmSyncError("");
 
-    const localCropId =
-      game.currentCropId;
-
-    const localCrop =
-      getCrop(
-        localCropId,
-      );
-
-    const localWaterings =
-      Math.min(
-        localCrop.growthCount,
-        Math.max(
-          0,
-          game.cropWaterings ?? 0,
-        ),
-      );
-
     void readFarmState(
       memberId,
     )
@@ -721,7 +734,7 @@ export default function FarmPage() {
 
           const remoteCropId =
             remote.selected_crop?.trim() ||
-            localCropId;
+            game.currentCropId;
 
           const remoteCrop =
             getCrop(
@@ -736,70 +749,17 @@ export default function FarmPage() {
               remoteCrop.growthCount,
             );
 
-          const remoteIsEmpty =
-            remoteWaterings === 0 &&
-            normalizeFarmInteger(
-              remote.growth,
-              0,
-              0,
-              100,
-            ) === 0 &&
-            !remote.harvest_ready;
-
-          const localHasProgress =
-            localWaterings > 0;
-
           /*
-           * 서버 농장이 비어 있고 이 기기에 기존 진행도가 있으면
-           * 기존 진행도를 최초 서버 기준값으로 이전합니다.
+           * 농장 진행도는 Supabase farm 테이블만 기준으로 사용합니다.
+           * PC·Android의 오래된 localStorage 농장값을 서버에 다시 올리지 않습니다.
            */
-          if (
-            remoteIsEmpty &&
-            localHasProgress
-          ) {
-            const migrated =
-              await saveFarmState(
-                memberId,
-                localCropId,
-                localWaterings,
-                localCrop.growthCount,
-              );
-
-            if (
-              farmSyncSequenceRef.current !==
-              sequence
-            ) {
-              return;
-            }
-
-            const migratedCropId =
-              migrated.selected_crop?.trim() ||
-              localCropId;
-
-            const migratedCrop =
-              getCrop(
-                migratedCropId,
-              );
-
-            applyFarmToScreen(
-              migratedCropId,
-              normalizeFarmInteger(
-                migrated.water,
-                localWaterings,
-                0,
-                migratedCrop.growthCount,
-              ),
-            );
-          } else {
-            applyFarmToScreen(
-              remoteCropId,
-              remoteWaterings,
-            );
-          }
+          applyFarmToScreen(
+            remoteCropId,
+            remoteWaterings,
+          );
 
           setFarmSyncReady(true);
-          setFarmSyncError("");
-        },
+          setFarmSyncError("");        },
       )
       .catch(
         (error: unknown) => {
@@ -840,6 +800,95 @@ export default function FarmPage() {
   }, [
     applyFarmToScreen,
     member?.memberId,
+  ]);
+
+  useEffect(() => {
+    const refreshFromServer = async () => {
+      const memberId =
+        member?.memberId?.trim() ??
+        "";
+
+      if (
+        !memberId ||
+        isWatering ||
+        isHarvesting
+      ) {
+        return;
+      }
+
+      try {
+        const remote =
+          await readFarmState(
+            memberId,
+          );
+
+        const remoteCropId =
+          remote.selected_crop?.trim() ||
+          selectedCropId;
+
+        const remoteCrop =
+          getCrop(
+            remoteCropId,
+          );
+
+        applyFarmToScreen(
+          remoteCropId,
+          normalizeFarmInteger(
+            remote.water,
+            0,
+            0,
+            remoteCrop.growthCount,
+          ),
+        );
+
+        setFarmSyncReady(true);
+        setFarmSyncError("");
+      } catch (error) {
+        setFarmSyncError(
+          error instanceof Error
+            ? error.message
+            : "농장 상태 새로고침에 실패했습니다.",
+        );
+      }
+    };
+
+    const handleVisibilityChange =
+      () => {
+        if (
+          document.visibilityState ===
+          "visible"
+        ) {
+          void refreshFromServer();
+        }
+      };
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
+
+    window.addEventListener(
+      "focus",
+      refreshFromServer,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+
+      window.removeEventListener(
+        "focus",
+        refreshFromServer,
+      );
+    };
+  }, [
+    applyFarmToScreen,
+    isHarvesting,
+    isWatering,
+    member?.memberId,
+    selectedCropId,
   ]);
 
   useEffect(() => {
@@ -965,75 +1014,150 @@ export default function FarmPage() {
   const harvestPlant = async () => {
     if (
       !farmSyncReady ||
-      !ready
+      !ready ||
+      isHarvesting
     ) {
       return;
     }
-
-    playSound("reward");
-    vibrate([35, 35, 60]);
-
-    applyFarmToScreen(
-      selectedCropId,
-      0,
-    );
-
-    patchGame({
-      points:
-        points +
-        HARVEST_POINT_REWARD,
-
-      harvestedCrops: {
-        ...(game.harvestedCrops ?? {}),
-
-        [crop.id]:
-          (game.harvestedCrops?.[
-            crop.id
-          ] ?? 0) + 1,
-      },
-    });
 
     const memberId =
       member?.memberId?.trim() ??
       "";
 
-    if (memberId) {
-      try {
-        await enqueueFarmSave(
+    if (!memberId) {
+      setFarmSyncError(
+        "회원 정보를 확인할 수 없습니다.",
+      );
+      return;
+    }
+
+    setIsHarvesting(true);
+    setFarmSyncError("");
+
+    try {
+      /*
+       * 포인트, 농장 초기화, 보관함 적립은
+       * 클라이언트가 각각 처리하지 않습니다.
+       *
+       * /api/farm-harvest가 Supabase 트랜잭션으로
+       * 세 작업을 한 번만 안전하게 처리합니다.
+       */
+      const result =
+        await requestFarmHarvest(
           memberId,
-          selectedCropId,
+        );
+
+      const serverPoints =
+        normalizeFarmInteger(
+          result.game_state?.points,
+          points,
+          0,
+        );
+
+      const serverWater =
+        normalizeFarmInteger(
+          result.game_state?.water,
+          game.water,
+          0,
+        );
+
+      const nextFarmWaterings =
+        normalizeFarmInteger(
+          result.farm_state?.water,
+          0,
           0,
           crop.growthCount,
         );
 
-        await addInventoryReward(
-          memberId,
-          "lucky_flower",
-          1,
-        );
-      } catch (error) {
-        console.error(
-          "[TTOK LIFE] 수확 저장 실패:",
-          error,
-        );
+      applyFarmToScreen(
+        selectedCropId,
+        nextFarmWaterings,
+      );
 
-        window.alert(
-          "수확 저장에 실패했습니다. 잠시 후 다시 확인해주세요.",
+      /*
+       * 서버가 확정한 최종 값만 화면에 적용합니다.
+       * 포인트를 클라이언트에서 더하지 않습니다.
+       */
+      patchGame({
+        points:
+          serverPoints,
+
+        water:
+          serverWater,
+
+        harvestedCrops: {
+          ...(game.harvestedCrops ?? {}),
+
+          [crop.id]:
+            (game.harvestedCrops?.[
+              crop.id
+            ] ?? 0) + 1,
+        },
+      });
+
+      playSound("reward");
+      vibrate([35, 35, 60]);
+
+      setShowPointReward(true);
+
+      window.setTimeout(() => {
+        router.push("/exchange");
+      }, 1300);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "수확 처리에 실패했습니다.";
+
+      setFarmSyncError(
+        message,
+      );
+
+      /*
+       * 실패하면 포인트·농장·보관함 화면값을
+       * 임의로 변경하지 않고 서버 상태를 다시 불러옵니다.
+       */
+      try {
+        const remote =
+          await readFarmState(
+            memberId,
+          );
+
+        const remoteCropId =
+          remote.selected_crop?.trim() ||
+          selectedCropId;
+
+        const remoteCrop =
+          getCrop(
+            remoteCropId,
+          );
+
+        applyFarmToScreen(
+          remoteCropId,
+          normalizeFarmInteger(
+            remote.water,
+            0,
+            0,
+            remoteCrop.growthCount,
+          ),
         );
+      } catch {
+        // 최초 수확 오류 메시지를 유지합니다.
       }
+
+      window.alert(
+        message,
+      );
+    } finally {
+      setIsHarvesting(false);
     }
-
-    setShowPointReward(true);
-
-    window.setTimeout(() => {
-      router.push("/exchange");
-    }, 1300);
   };
 
   const mainAction = () => {
     if (
       !farmSyncReady ||
-      isLocked
+      isLocked ||
+      isHarvesting
     ) {
       return;
     }
@@ -1336,9 +1460,11 @@ export default function FarmPage() {
                 <strong>
                   {!farmSyncReady
                     ? "농장 불러오는 중..."
-                    : ready
-                      ? "성장 완료"
-                      : isWatering
+                    : isHarvesting
+                      ? "수확 처리 중..."
+                      : ready
+                        ? "성장 완료"
+                        : isWatering
                         ? "물을 주는 중..."
                         : "지금 물주기 가능"}
                 </strong>
@@ -1354,6 +1480,7 @@ export default function FarmPage() {
               disabled={
                 !farmSyncReady ||
                 isLocked ||
+                isHarvesting ||
                 (!ready && isWatering)
               }
             >
@@ -1367,6 +1494,10 @@ export default function FarmPage() {
                   {currentPlant
                     ?.requiredLevel ?? 1}
                   필요
+                </>
+              ) : isHarvesting ? (
+                <>
+                  🔒 안전하게 수확 처리 중...
                 </>
               ) : ready ? (
                 <>
