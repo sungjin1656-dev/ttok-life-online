@@ -585,6 +585,8 @@ export async function POST(
     );
 
   const payload: FarmStateRow = {
+
+    
     member_id: memberId,
 
     selected_crop:
@@ -643,6 +645,11 @@ export async function POST(
       new Date().toISOString(),
   };
 
+  console.log(
+    "[FARM PATCH PAYLOAD]",
+    payload,
+  );
+
   try {
     const saveResponse = await fetch(
       `${config.url}/rest/v1/farm` +
@@ -663,35 +670,35 @@ export async function POST(
       },
     );
 
-const saveText =
-  await saveResponse.text();
+    const saveText =
+      await saveResponse.text();
 
-console.log(
-  "[FARM PATCH STATUS]",
-  saveResponse.status,
-);
+    console.log(
+      "[FARM PATCH STATUS]",
+      saveResponse.status,
+    );
 
-console.log(
-  "[FARM PATCH BODY]",
-  saveText,
-);
+    console.log(
+      "[FARM PATCH BODY]",
+      saveText,
+    );
 
-if (!saveResponse.ok) {
-  return NextResponse.json(
-    {
-      ok: false,
-      message:
-        "농장 상태 저장에 실패했습니다.",
-      supabase_status:
-        saveResponse.status,
-      detail:
-        saveText,
-    },
-    {
-      status: 502,
-    },
-  );
-}
+    if (!saveResponse.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "농장 상태 저장에 실패했습니다.",
+          supabase_status:
+            saveResponse.status,
+          detail:
+            saveText,
+        },
+        {
+          status: 502,
+        },
+      );
+    }
 
     const savedRows = saveText
       ? (JSON.parse(
