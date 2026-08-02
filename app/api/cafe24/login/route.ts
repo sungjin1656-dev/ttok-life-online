@@ -20,7 +20,10 @@ const CAFE24_SCOPES = [
 const OAUTH_STATE_COOKIE =
   "ttok_cafe24_oauth_state";
 
-const OAUTH_STATE_LIFETIME_SECONDS =
+const OAUTH_VERIFIER_COOKIE =
+  "ttok_cafe24_pkce_verifier";
+
+const OAUTH_LIFETIME_SECONDS =
   10 * 60;
 
 type ServerConfig = {
@@ -130,6 +133,25 @@ function createState(): string {
   );
 }
 
+function createCodeVerifier(): string {
+  return randomBytes(64).toString(
+    "base64url",
+  );
+}
+
+function createCodeChallenge(
+  verifier: string,
+): string {
+  return createHash("sha256")
+    .update(
+      verifier,
+      "ascii",
+    )
+    .digest(
+      "base64url",
+    );
+}
+
 function hashState(
   state: string,
 ): string {
@@ -158,10 +180,6 @@ function getSupabaseHeaders(
       "return=minimal",
   };
 
-  /*
-   * Supabase의 기존 service_role JWT와
-   * 신규 sb_secret_ 형식을 모두 지원합니다.
-   */
   if (
     !secretKey.startsWith(
       "sb_secret_",
@@ -196,7 +214,7 @@ async function cleanupExpiredStates(
   } catch {
     /*
      * 오래된 state 정리에 실패해도
-     * 새 OAuth 인증 시작은 계속 진행합니다.
+     * 새 OAuth 인증 시작은 계속합니다.
      */
   }
 }
@@ -208,7 +226,7 @@ async function saveOAuthState(
   const expiresAt =
     new Date(
       Date.now() +
-        OAUTH_STATE_LIFETIME_SECONDS *
+        OAUTH_LIFETIME_SECONDS *
           1000,
     ).toISOString();
 
@@ -253,6 +271,7 @@ async function saveOAuthState(
 function buildAuthorizationUrl(
   config: ServerConfig,
   state: string,
+  codeChallenge: string,
 ): URL {
   const authorizeUrl =
     new URL(
@@ -284,18 +303,19 @@ function buildAuthorizationUrl(
     state,
   );
 
+  authorizeUrl.searchParams.set(
+    "code_challenge",
+    codeChallenge,
+  );
+
+  authorizeUrl.searchParams.set(
+    "code_challenge_method",
+    "S256",
+  );
+
   return authorizeUrl;
 }
 
-/*
- * GET /api/cafe24/login
- *
- * 처리 흐름:
- * 1. 일회용 OAuth state 생성
- * 2. state 원문이 아닌 SHA-256 해시만 Supabase 저장
- * 3. HttpOnly 쿠키에도 state 저장
- * 4. 카페24 관리자 OAuth 동의 화면으로 이동
- */
 export async function GET(
   _request: NextRequest,
 ) {
@@ -310,6 +330,14 @@ export async function GET(
     const state =
       createState();
 
+    const codeVerifier =
+      createCodeVerifier();
+
+    const codeChallenge =
+      createCodeChallenge(
+        codeVerifier,
+      );
+
     await saveOAuthState(
       config,
       state,
@@ -319,6 +347,7 @@ export async function GET(
       buildAuthorizationUrl(
         config,
         state,
+        codeChallenge,
       );
 
     const response =
@@ -338,7 +367,20 @@ export async function GET(
         sameSite: "lax",
         path: "/api/cafe24",
         maxAge:
-          OAUTH_STATE_LIFETIME_SECONDS,
+          OAUTH_LIFETIME_SECONDS,
+      },
+    );
+
+    response.cookies.set(
+      OAUTH_VERIFIER_COOKIE,
+      codeVerifier,
+      {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        path: "/api/cafe24",
+        maxAge:
+          OAUTH_LIFETIME_SECONDS,
       },
     );
 

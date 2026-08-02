@@ -15,6 +15,9 @@ export const dynamic = "force-dynamic";
 const OAUTH_STATE_COOKIE =
   "ttok_cafe24_oauth_state";
 
+const OAUTH_VERIFIER_COOKIE =
+  "ttok_cafe24_pkce_verifier";
+
 type ServerConfig = {
   mallId: string;
   clientId: string;
@@ -343,10 +346,6 @@ function encryptToken(
   };
 }
 
-/*
- * state를 확인하고 같은 요청의 재사용을 막기 위해 used_at을 동시에 기록합니다.
- * 조건에 맞는 행이 없으면 빈 배열이 반환됩니다.
- */
 async function consumeOAuthState(
   config: ServerConfig,
   state: string,
@@ -429,6 +428,7 @@ async function consumeOAuthState(
 async function exchangeAuthorizationCode(
   config: ServerConfig,
   code: string,
+  codeVerifier: string,
 ): Promise<Cafe24TokenResponse> {
   const basicAuth =
     Buffer.from(
@@ -447,6 +447,9 @@ async function exchangeAuthorizationCode(
 
       redirect_uri:
         config.redirectUri,
+
+      code_verifier:
+        codeVerifier,
     });
 
   const response =
@@ -695,6 +698,30 @@ async function saveEncryptedTokens(
   }
 }
 
+function clearOAuthCookies(
+  response: NextResponse,
+): void {
+  for (
+    const cookieName
+    of [
+      OAUTH_STATE_COOKIE,
+      OAUTH_VERIFIER_COOKIE,
+    ]
+  ) {
+    response.cookies.set(
+      cookieName,
+      "",
+      {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        path: "/api/cafe24",
+        maxAge: 0,
+      },
+    );
+  }
+}
+
 function createResultRedirect(
   request: NextRequest,
   success: boolean,
@@ -726,16 +753,8 @@ function createResultRedirect(
       },
     );
 
-  response.cookies.set(
-    OAUTH_STATE_COOKIE,
-    "",
-    {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/api/cafe24",
-      maxAge: 0,
-    },
+  clearOAuthCookies(
+    response,
   );
 
   response.headers.set(
@@ -746,17 +765,6 @@ function createResultRedirect(
   return response;
 }
 
-/*
- * GET /api/cafe24/callback
- *
- * 처리 흐름:
- * 1. 카페24가 전달한 code/state 확인
- * 2. HttpOnly 쿠키와 state 일치 확인
- * 3. Supabase의 state 해시 검증 및 1회 사용 처리
- * 4. Authorization Code를 Access/Refresh Token으로 교환
- * 5. AES-256-GCM 암호화 후 cafe24_tokens 저장
- * 6. /farm?cafe24=connected 로 이동
- */
 export async function GET(
   request: NextRequest,
 ) {
@@ -818,13 +826,21 @@ export async function GET(
         )?.value,
       );
 
+    const codeVerifier =
+      normalizeString(
+        request.cookies.get(
+          OAUTH_VERIFIER_COOKIE,
+        )?.value,
+      );
+
     if (
       !code ||
       !returnedState ||
-      !cookieState
+      !cookieState ||
+      !codeVerifier
     ) {
       throw new Error(
-        "OAuth callback 필수 값이 없습니다.",
+        "OAuth callback 필수 값 또는 PKCE verifier가 없습니다.",
       );
     }
 
@@ -867,6 +883,7 @@ export async function GET(
       await exchangeAuthorizationCode(
         config,
         code,
+        codeVerifier,
       );
 
     await saveEncryptedTokens(
