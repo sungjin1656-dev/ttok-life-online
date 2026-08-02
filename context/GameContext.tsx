@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -59,6 +60,10 @@ type GameStateApiResponse = {
   detail?: string;
 };
 
+type GameUpdater = (
+  current: GameState,
+) => GameState;
+
 const GameContext =
   createContext<GameContextValue | null>(null);
 
@@ -66,9 +71,9 @@ const STORAGE_KEY =
   "ttok-life-farm-preview-v12";
 
 const MIGRATION_KEY_PREFIX =
-  "ttok-life-supabase-migrated-v1:";
+  "ttok-life-supabase-migrated-v2:";
 
-const REMOTE_SAVE_DELAY = 600;
+const REMOTE_SAVE_DELAY = 700;
 
 function normalizeNumber(
   value: unknown,
@@ -81,7 +86,10 @@ function normalizeNumber(
     return fallback;
   }
 
-  return Math.max(0, Math.floor(value));
+  return Math.max(
+    0,
+    Math.floor(value),
+  );
 }
 
 function normalizeLevel(
@@ -95,7 +103,10 @@ function normalizeLevel(
     return fallback;
   }
 
-  return Math.max(1, Math.floor(value));
+  return Math.max(
+    1,
+    Math.floor(value),
+  );
 }
 
 function getLocalDateKey(
@@ -115,8 +126,11 @@ function getLocalDateKey(
 }
 
 /*
- * GameState 내부에서는 lastAttendanceDate를
- * null이 아닌 빈 문자열로 관리합니다.
+ * React GameState 내부에서는
+ * lastAttendanceDate를 string으로 유지합니다.
+ *
+ * 날짜가 없으면 빈 문자열을 사용하고,
+ * Supabase로 전송할 때만 null로 변환합니다.
  */
 function normalizeStoredDate(
   value: unknown,
@@ -137,27 +151,49 @@ function normalizeStoredDate(
     return trimmed;
   }
 
-  const koreanMatch = trimmed.match(
-    /^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?$/,
-  );
-
-  if (koreanMatch) {
-    const year = koreanMatch[1];
-
-    const month = koreanMatch[2].padStart(
-      2,
-      "0",
+  const koreanDateMatch =
+    trimmed.match(
+      /^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?$/,
     );
 
-    const day = koreanMatch[3].padStart(
-      2,
-      "0",
-    );
-
-    return `${year}-${month}-${day}`;
+  if (!koreanDateMatch) {
+    return "";
   }
 
-  return "";
+  const year =
+    koreanDateMatch[1];
+
+  const month =
+    koreanDateMatch[2].padStart(
+      2,
+      "0",
+    );
+
+  const day =
+    koreanDateMatch[3].padStart(
+      2,
+      "0",
+    );
+
+  return `${year}-${month}-${day}`;
+}
+
+function createInitialGameCopy(): GameState {
+  return {
+    ...initialGameState,
+
+    rewards: Array.isArray(
+      initialGameState.rewards,
+    )
+      ? [...initialGameState.rewards]
+      : initialGameState.rewards,
+
+    inviteHistory: Array.isArray(
+      initialGameState.inviteHistory,
+    )
+      ? [...initialGameState.inviteHistory]
+      : initialGameState.inviteHistory,
+  };
 }
 
 function loadLocalGame(): GameState {
@@ -167,17 +203,17 @@ function loadLocalGame(): GameState {
     );
 
   if (!saved) {
-    return {
-      ...initialGameState,
-    };
+    return createInitialGameCopy();
   }
 
   try {
     const parsed =
-      JSON.parse(saved) as Partial<GameState>;
+      JSON.parse(
+        saved,
+      ) as Partial<GameState>;
 
     return {
-      ...initialGameState,
+      ...createInitialGameCopy(),
       ...parsed,
 
       points:
@@ -190,7 +226,9 @@ function loadLocalGame(): GameState {
           parsed.lastAttendanceDate,
         ),
 
-      rewards: Array.isArray(parsed.rewards)
+      rewards: Array.isArray(
+        parsed.rewards,
+      )
         ? parsed.rewards
         : initialGameState.rewards,
 
@@ -205,9 +243,23 @@ function loadLocalGame(): GameState {
       STORAGE_KEY,
     );
 
-    return {
-      ...initialGameState,
-    };
+    return createInitialGameCopy();
+  }
+}
+
+function saveLocalGame(
+  game: GameState,
+): void {
+  try {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(game),
+    );
+  } catch (error) {
+    console.error(
+      "[TTOK LIFE] localStorage 저장 실패:",
+      error,
+    );
   }
 }
 
@@ -281,10 +333,11 @@ function createApiPayload(
       0,
     ),
 
-    total_purchase: normalizeNumber(
-      game.totalPurchase,
-      0,
-    ),
+    total_purchase:
+      normalizeNumber(
+        game.totalPurchase,
+        0,
+      ),
 
     attendance_count:
       normalizeNumber(
@@ -295,10 +348,11 @@ function createApiPayload(
     last_attendance_date:
       lastAttendanceDate || null,
 
-    invited_count: normalizeNumber(
-      game.invitedCount,
-      0,
-    ),
+    invited_count:
+      normalizeNumber(
+        game.invitedCount,
+        0,
+      ),
   };
 }
 
@@ -306,7 +360,7 @@ function applyApiState(
   current: GameState,
   remote: GameStateApiRow,
 ): GameState {
-  const syncedFields = {
+  const remoteFields = {
     water: normalizeNumber(
       remote.water,
       current.water,
@@ -351,10 +405,11 @@ function applyApiState(
       current.exp,
     ),
 
-    totalPurchase: normalizeNumber(
-      remote.total_purchase,
-      current.totalPurchase,
-    ),
+    totalPurchase:
+      normalizeNumber(
+        remote.total_purchase,
+        current.totalPurchase,
+      ),
 
     attendanceCount:
       normalizeNumber(
@@ -367,15 +422,16 @@ function applyApiState(
         remote.last_attendance_date,
       ),
 
-    invitedCount: normalizeNumber(
-      remote.invited_count,
-      current.invitedCount,
-    ),
+    invitedCount:
+      normalizeNumber(
+        remote.invited_count,
+        current.invitedCount,
+      ),
   } as Partial<GameState>;
 
   return {
     ...current,
-    ...syncedFields,
+    ...remoteFields,
   };
 }
 
@@ -383,8 +439,14 @@ function isRemoteStateEmpty(
   remote: GameStateApiRow,
 ): boolean {
   return (
-    normalizeNumber(remote.water, 0) === 0 &&
-    normalizeNumber(remote.points, 0) === 0 &&
+    normalizeNumber(
+      remote.water,
+      0,
+    ) === 0 &&
+    normalizeNumber(
+      remote.points,
+      0,
+    ) === 0 &&
     normalizeNumber(
       remote.today_steps,
       0,
@@ -401,7 +463,10 @@ function isRemoteStateEmpty(
       remote.calories,
       0,
     ) === 0 &&
-    normalizeNumber(remote.exp, 0) === 0 &&
+    normalizeNumber(
+      remote.exp,
+      0,
+    ) === 0 &&
     normalizeNumber(
       remote.total_purchase,
       0,
@@ -415,7 +480,10 @@ function isRemoteStateEmpty(
       0,
     ) === 0 &&
     !remote.last_attendance_date &&
-    normalizeNumber(remote.version, 1) <= 1
+    normalizeNumber(
+      remote.version,
+      1,
+    ) <= 1
   );
 }
 
@@ -423,8 +491,14 @@ function hasLocalProgress(
   game: GameState,
 ): boolean {
   return (
-    normalizeNumber(game.water, 0) > 0 ||
-    normalizeNumber(game.points, 0) > 0 ||
+    normalizeNumber(
+      game.water,
+      0,
+    ) > 0 ||
+    normalizeNumber(
+      game.points,
+      0,
+    ) > 0 ||
     normalizeNumber(
       game.todaySteps,
       0,
@@ -442,7 +516,10 @@ function hasLocalProgress(
       game.calories,
       0,
     ) > 0 ||
-    normalizeNumber(game.exp, 0) > 0 ||
+    normalizeNumber(
+      game.exp,
+      0,
+    ) > 0 ||
     normalizeNumber(
       game.totalPurchase,
       0,
@@ -460,7 +537,10 @@ function hasLocalProgress(
         game.lastAttendanceDate,
       ),
     ) ||
-    normalizeLevel(game.level, 1) !==
+    normalizeLevel(
+      game.level,
+      1,
+    ) !==
       normalizeLevel(
         initialGameState.level,
         1,
@@ -481,7 +561,8 @@ async function readRemoteGame(
     },
   );
 
-  const text = await response.text();
+  const text =
+    await response.text();
 
   let result: GameStateApiResponse = {};
 
@@ -538,7 +619,8 @@ async function saveRemoteGame(
     },
   );
 
-  const text = await response.text();
+  const text =
+    await response.text();
 
   let result: GameStateApiResponse = {};
 
@@ -584,164 +666,230 @@ export function GameProvider({
   const [ready, setReady] =
     useState(false);
 
-  const gameRef = useRef<GameState>(
-    initialGameState,
-  );
+  /*
+   * React state와 별도로 현재 최신 게임값을
+   * 즉시 참조하기 위한 ref입니다.
+   */
+  const gameRef =
+    useRef<GameState>(
+      initialGameState,
+    );
 
+  /*
+   * 현재 Supabase와 연결된 회원 ID입니다.
+   */
   const activeMemberIdRef =
     useRef("");
 
-  const syncInFlightRef =
-    useRef("");
+  /*
+   * 현재 회원의 최초 Supabase 조회 및 적용이
+   * 완료되었는지 나타냅니다.
+   */
+  const remoteReadyRef =
+    useRef(false);
 
+  /*
+   * 회원이 바뀌거나 다시 연결될 때
+   * 이전 비동기 요청 결과가 적용되는 것을 방지합니다.
+   */
+  const syncSequenceRef =
+    useRef(0);
+
+  /*
+   * 연속된 상태 변경을 하나의 저장 요청으로
+   * 합치기 위한 타이머입니다.
+   */
   const saveTimerRef =
     useRef<number | null>(null);
 
-  const skipNextRemoteSaveRef =
-    useRef(false);
-
-  useEffect(() => {
-    const localGame = loadLocalGame();
-
-    gameRef.current = localGame;
-
-    setGame(localGame);
-    setReady(true);
-  }, []);
-
-  useEffect(() => {
-    gameRef.current = game;
-
-    if (!ready) {
-      return;
-    }
-
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(game),
+  /*
+   * Supabase POST 요청이 순서대로 실행되도록
+   * 저장 요청을 직렬화합니다.
+   */
+  const saveQueueRef =
+    useRef<Promise<void>>(
+      Promise.resolve(),
     );
-  }, [game, ready]);
 
   /*
-   * 회원 연결 후 최초 동기화
-   *
-   * 1. Supabase 데이터를 조회합니다.
-   * 2. Supabase가 비어 있고 최초 이전 전이면
-   *    기존 localStorage 값을 Supabase로 이전합니다.
-   * 3. 그 외에는 Supabase 데이터를 원본으로 적용합니다.
+   * 최초 localStorage 로딩 완료 여부입니다.
    */
-  useEffect(() => {
-    if (!ready || !member?.memberId) {
-      return;
-    }
+  const localReadyRef =
+    useRef(false);
 
-    const memberId =
-      member.memberId.trim();
+  /*
+   * 현재 예약된 Supabase 저장을 취소합니다.
+   */
+  const clearSaveTimer =
+    useCallback(() => {
+      if (
+        saveTimerRef.current === null
+      ) {
+        return;
+      }
 
-    if (!memberId) {
-      return;
-    }
-
-    if (
-      activeMemberIdRef.current ===
-        memberId ||
-      syncInFlightRef.current ===
-        memberId
-    ) {
-      return;
-    }
-
-    activeMemberIdRef.current =
-      memberId;
-
-    syncInFlightRef.current =
-      memberId;
-
-    if (saveTimerRef.current !== null) {
       window.clearTimeout(
         saveTimerRef.current,
       );
 
       saveTimerRef.current = null;
-    }
-
-    const migrationKey =
-      `${MIGRATION_KEY_PREFIX}${memberId}`;
-
-    const migrationCompleted =
-      window.localStorage.getItem(
-        migrationKey,
-      ) === "1";
-
-    void readRemoteGame(memberId)
-      .then(async (remoteState) => {
-        const localGame =
-          gameRef.current;
-
-        const shouldMigrate =
-          !migrationCompleted &&
-          isRemoteStateEmpty(
-            remoteState,
-          ) &&
-          hasLocalProgress(localGame);
-
-        if (shouldMigrate) {
-          const migratedState =
-            await saveRemoteGame(
-              memberId,
-              localGame,
-            );
-
-          skipNextRemoteSaveRef.current =
-            true;
-
-          setGame((current) =>
-            applyApiState(
-              current,
-              migratedState,
-            ),
-          );
-        } else {
-          skipNextRemoteSaveRef.current =
-            true;
-
-          setGame((current) =>
-            applyApiState(
-              current,
-              remoteState,
-            ),
-          );
-        }
-
-        window.localStorage.setItem(
-          migrationKey,
-          "1",
-        );
-      })
-      .catch((error: unknown) => {
-        console.error(
-          "[TTOK LIFE] Supabase 초기 동기화 실패:",
-          error,
-        );
-      })
-      .finally(() => {
-        if (
-          syncInFlightRef.current ===
-          memberId
-        ) {
-          syncInFlightRef.current = "";
-        }
-      });
-  }, [
-    ready,
-    member?.memberId,
-  ]);
+    }, []);
 
   /*
-   * 게임 값이 변경되면:
+   * Supabase 저장 요청을 순서대로 실행합니다.
    *
-   * localStorage에는 즉시 캐시하고,
-   * Supabase에는 600ms 후 저장합니다.
+   * 먼저 시작한 저장이 늦게 끝나서
+   * 최신 데이터를 덮어쓰는 문제를 방지합니다.
+   */
+  const enqueueRemoteSave =
+    useCallback(
+      (
+        memberId: string,
+        snapshot: GameState,
+      ) => {
+        saveQueueRef.current =
+          saveQueueRef.current
+            .catch(() => undefined)
+            .then(async () => {
+              /*
+               * 저장 대기 중 회원이 바뀌었다면
+               * 이전 회원 데이터는 저장하지 않습니다.
+               */
+              if (
+                activeMemberIdRef.current !==
+                memberId
+              ) {
+                return;
+              }
+
+              await saveRemoteGame(
+                memberId,
+                snapshot,
+              );
+            })
+            .catch(
+              (error: unknown) => {
+                console.error(
+                  "[TTOK LIFE] Supabase 저장 실패:",
+                  error,
+                );
+              },
+            );
+      },
+      [],
+    );
+
+  /*
+   * 가장 최신 게임 상태를 일정 시간 뒤
+   * Supabase에 저장하도록 예약합니다.
+   */
+  const scheduleRemoteSave =
+    useCallback(
+      (
+        nextGame: GameState,
+        immediate = false,
+      ) => {
+        const memberId =
+          activeMemberIdRef.current;
+
+        if (
+          !memberId ||
+          !remoteReadyRef.current
+        ) {
+          return;
+        }
+
+        clearSaveTimer();
+
+        const snapshot = {
+          ...nextGame,
+        };
+
+        if (immediate) {
+          enqueueRemoteSave(
+            memberId,
+            snapshot,
+          );
+
+          return;
+        }
+
+        saveTimerRef.current =
+          window.setTimeout(() => {
+            saveTimerRef.current =
+              null;
+
+            enqueueRemoteSave(
+              memberId,
+              snapshot,
+            );
+          }, REMOTE_SAVE_DELAY);
+      },
+      [
+        clearSaveTimer,
+        enqueueRemoteSave,
+      ],
+    );
+
+  /*
+   * 모든 게임 상태 변경은 이 함수 하나를 통합니다.
+   *
+   * 1. gameRef 즉시 변경
+   * 2. React state 변경
+   * 3. localStorage 캐시 저장
+   * 4. Supabase 저장 예약
+   */
+  const updateGame =
+    useCallback(
+      (
+        updater: GameUpdater,
+        persist = true,
+      ) => {
+        const current =
+          gameRef.current;
+
+        const next =
+          updater(current);
+
+        if (next === current) {
+          return;
+        }
+
+        gameRef.current = next;
+
+        setGame(next);
+
+        if (localReadyRef.current) {
+          saveLocalGame(next);
+        }
+
+        if (persist) {
+          scheduleRemoteSave(next);
+        }
+      },
+      [scheduleRemoteSave],
+    );
+
+  /*
+   * localStorage 캐시를 최초 1회 불러옵니다.
+   */
+  useEffect(() => {
+    const localGame =
+      loadLocalGame();
+
+    gameRef.current =
+      localGame;
+
+    localReadyRef.current =
+      true;
+
+    setGame(localGame);
+    setReady(true);
+  }, []);
+
+  /*
+   * Cafe24/Flex 회원이 연결되면
+   * 해당 회원의 Supabase 상태를 불러옵니다.
    */
   useEffect(() => {
     if (
@@ -758,76 +906,508 @@ export function GameProvider({
       return;
     }
 
+    /*
+     * 같은 회원이 이미 완전히 연결된 상태라면
+     * 다시 초기화하지 않습니다.
+     */
     if (
-      skipNextRemoteSaveRef.current
-    ) {
-      skipNextRemoteSaveRef.current =
-        false;
-
-      return;
-    }
-
-    if (
-      activeMemberIdRef.current !==
-      memberId
+      activeMemberIdRef.current ===
+        memberId &&
+      remoteReadyRef.current
     ) {
       return;
     }
 
-    if (saveTimerRef.current !== null) {
-      window.clearTimeout(
-        saveTimerRef.current,
-      );
-    }
+    const syncSequence =
+      syncSequenceRef.current + 1;
 
-    saveTimerRef.current =
-      window.setTimeout(() => {
-        saveTimerRef.current = null;
+    syncSequenceRef.current =
+      syncSequence;
 
-        const currentGame =
+    clearSaveTimer();
+
+    activeMemberIdRef.current =
+      memberId;
+
+    remoteReadyRef.current =
+      false;
+
+    const migrationKey =
+      `${MIGRATION_KEY_PREFIX}${memberId}`;
+
+    const migrationCompleted =
+      window.localStorage.getItem(
+        migrationKey,
+      ) === "1";
+
+    void readRemoteGame(memberId)
+      .then(async (remoteState) => {
+        if (
+          syncSequenceRef.current !==
+            syncSequence ||
+          activeMemberIdRef.current !==
+            memberId
+        ) {
+          return;
+        }
+
+        const localGame =
           gameRef.current;
 
-        void saveRemoteGame(
-          memberId,
-          currentGame,
-        )
-          .then((savedState) => {
-            skipNextRemoteSaveRef.current =
-              true;
-
-            setGame((current) =>
-              applyApiState(
-                current,
-                savedState,
-              ),
-            );
-          })
-          .catch(
-            (error: unknown) => {
-              console.error(
-                "[TTOK LIFE] Supabase 저장 실패:",
-                error,
-              );
-            },
+        const shouldMigrate =
+          !migrationCompleted &&
+          isRemoteStateEmpty(
+            remoteState,
+          ) &&
+          hasLocalProgress(
+            localGame,
           );
-      }, REMOTE_SAVE_DELAY);
 
-    return () => {
-      if (
-        saveTimerRef.current !== null
-      ) {
-        window.clearTimeout(
-          saveTimerRef.current,
+        let nextGame: GameState;
+
+        if (shouldMigrate) {
+          /*
+           * 최초 회원 연결이며 서버 데이터가 비어 있다면
+           * 기존 모바일웹 localStorage 값을 살립니다.
+           */
+          const migratedRemoteState =
+            await saveRemoteGame(
+              memberId,
+              localGame,
+            );
+
+          if (
+            syncSequenceRef.current !==
+              syncSequence ||
+            activeMemberIdRef.current !==
+              memberId
+          ) {
+            return;
+          }
+
+          nextGame =
+            applyApiState(
+              localGame,
+              migratedRemoteState,
+            );
+        } else {
+          /*
+           * 이미 서버 데이터가 있으면
+           * Supabase 값을 최종 원본으로 사용합니다.
+           *
+           * 닉네임, 보상함 등 game_state에 없는 값은
+           * 현재 로컬 값을 유지합니다.
+           */
+          nextGame =
+            applyApiState(
+              localGame,
+              remoteState,
+            );
+        }
+
+        gameRef.current =
+          nextGame;
+
+        setGame(nextGame);
+        saveLocalGame(nextGame);
+
+        window.localStorage.setItem(
+          migrationKey,
+          "1",
         );
 
-        saveTimerRef.current = null;
+        remoteReadyRef.current =
+          true;
+      })
+      .catch(
+        (error: unknown) => {
+          if (
+            syncSequenceRef.current !==
+            syncSequence
+          ) {
+            return;
+          }
+
+          remoteReadyRef.current =
+            false;
+
+          console.error(
+            "[TTOK LIFE] Supabase 초기 동기화 실패:",
+            error,
+          );
+        },
+      );
+
+    return () => {
+      /*
+       * 회원 ID가 바뀌거나 Provider가 해제되면
+       * 이전 동기화 요청을 무효화합니다.
+       */
+      if (
+        syncSequenceRef.current ===
+        syncSequence
+      ) {
+        syncSequenceRef.current += 1;
       }
     };
   }, [
-    game,
     ready,
     member?.memberId,
+    clearSaveTimer,
   ]);
+
+  /*
+   * 브라우저가 닫히거나 백그라운드로 이동할 때
+   * 마지막 최신 상태 저장을 한 번 더 요청합니다.
+   */
+  useEffect(() => {
+    const flushLatestGame = () => {
+      const memberId =
+        activeMemberIdRef.current;
+
+      if (
+        !memberId ||
+        !remoteReadyRef.current
+      ) {
+        return;
+      }
+
+      clearSaveTimer();
+
+      enqueueRemoteSave(
+        memberId,
+        gameRef.current,
+      );
+    };
+
+    const handleVisibilityChange =
+      () => {
+        if (
+          document.visibilityState ===
+          "hidden"
+        ) {
+          flushLatestGame();
+        }
+      };
+
+    window.addEventListener(
+      "pagehide",
+      flushLatestGame,
+    );
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "pagehide",
+        flushLatestGame,
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+    };
+  }, [
+    clearSaveTimer,
+    enqueueRemoteSave,
+  ]);
+
+  /*
+   * Provider 해제 시 저장 타이머를 정리합니다.
+   */
+  useEffect(() => {
+    return () => {
+      clearSaveTimer();
+    };
+  }, [clearSaveTimer]);
+
+  const patchGame =
+    useCallback(
+      (
+        patch: Partial<GameState>,
+      ) => {
+        updateGame(
+          (current) => ({
+            ...current,
+            ...patch,
+          }),
+        );
+      },
+      [updateGame],
+    );
+
+  const setNickname =
+    useCallback(
+      (nickname: string) => {
+        updateGame(
+          (current) => ({
+            ...current,
+
+            nickname:
+              nickname.trim(),
+          }),
+        );
+      },
+      [updateGame],
+    );
+
+  const addSteps =
+    useCallback(
+      (steps: number) => {
+        if (
+          !Number.isFinite(steps) ||
+          steps <= 0
+        ) {
+          return;
+        }
+
+        const normalizedSteps =
+          Math.floor(steps);
+
+        updateGame((current) => {
+          const nextTodaySteps =
+            current.todaySteps +
+            normalizedSteps;
+
+          const currentTotalSteps =
+            getGameNumber(
+              current,
+              "totalSteps",
+              0,
+            );
+
+          const nextFields = {
+            todaySteps:
+              nextTodaySteps,
+
+            weeklySteps:
+              current.weeklySteps +
+              normalizedSteps,
+
+            totalSteps:
+              currentTotalSteps +
+              normalizedSteps,
+
+            calories: Math.round(
+              nextTodaySteps * 0.04,
+            ),
+
+            water:
+              current.water +
+              Math.floor(
+                normalizedSteps / 100,
+              ),
+
+            exp:
+              current.exp +
+              Math.floor(
+                normalizedSteps / 100,
+              ),
+          } as Partial<GameState>;
+
+          return {
+            ...current,
+            ...nextFields,
+          };
+        });
+      },
+      [updateGame],
+    );
+
+  const addPurchase =
+    useCallback(
+      (amount: number) => {
+        if (
+          !Number.isFinite(amount) ||
+          amount <= 0
+        ) {
+          return;
+        }
+
+        const normalizedAmount =
+          Math.floor(amount);
+
+        updateGame((current) => {
+          const baseWater =
+            Math.floor(
+              normalizedAmount /
+                1000,
+            );
+
+          let bonusPercent = 0;
+
+          if (current.level === 2) {
+            bonusPercent = 10;
+          } else if (
+            current.level === 3
+          ) {
+            bonusPercent = 30;
+          } else if (
+            current.level >= 4
+          ) {
+            bonusPercent = 50;
+          }
+
+          const rewardWater =
+            Math.floor(
+              baseWater *
+                (
+                  1 +
+                  bonusPercent / 100
+                ),
+            );
+
+          return {
+            ...current,
+
+            totalPurchase:
+              current.totalPurchase +
+              normalizedAmount,
+
+            water:
+              current.water +
+              rewardWater,
+          };
+        });
+      },
+      [updateGame],
+    );
+
+  const checkAttendance =
+    useCallback(() => {
+      const today =
+        getLocalDateKey();
+
+      updateGame((current) => {
+        const savedDate =
+          normalizeStoredDate(
+            current.lastAttendanceDate,
+          );
+
+        if (savedDate === today) {
+          return current;
+        }
+
+        const nextAttendanceCount =
+          current.attendanceCount + 1;
+
+        const reward =
+          attendanceRewards[
+            nextAttendanceCount
+          ] ??
+          attendanceRewards[1];
+
+        return {
+          ...current,
+
+          lastAttendanceDate:
+            today,
+
+          attendanceCount:
+            nextAttendanceCount,
+
+          water:
+            current.water +
+            reward.water,
+        };
+      });
+    }, [updateGame]);
+
+  const addInvite =
+    useCallback(() => {
+      updateGame((current) => {
+        const nextCount =
+          current.invitedCount + 1;
+
+        const reward =
+          inviteRewards[
+            nextCount as keyof typeof inviteRewards
+          ] ?? 0;
+
+        return {
+          ...current,
+
+          invitedCount:
+            nextCount,
+
+          water:
+            current.water +
+            reward,
+        };
+      });
+    }, [updateGame]);
+
+  const completeInviteReward =
+    useCallback(() => {
+      updateGame((current) => {
+        if (!current.invitedBy) {
+          return current;
+        }
+
+        const history = {
+          id: `invite-${Date.now()}`,
+
+          inviterCode:
+            current.invitedBy,
+
+          joinedAt:
+            getLocalDateKey(),
+
+          reward: 500,
+        };
+
+        return {
+          ...current,
+
+          water:
+            current.water + 500,
+
+          invitedResidents:
+            current.invitedResidents +
+            1,
+
+          invitedCount:
+            current.invitedCount + 1,
+
+          inviteHistory: [
+            ...(
+              current.inviteHistory ??
+              []
+            ),
+            history,
+          ],
+        };
+      });
+    }, [updateGame]);
+
+  const resetGame =
+    useCallback(() => {
+      const resetState =
+        createInitialGameCopy();
+
+      window.localStorage.removeItem(
+        STORAGE_KEY,
+      );
+
+      /*
+       * resetGame도 회원의 Supabase 데이터에
+       * 동일하게 반영합니다.
+       */
+      gameRef.current =
+        resetState;
+
+      setGame(resetState);
+      saveLocalGame(resetState);
+
+      scheduleRemoteSave(
+        resetState,
+        true,
+      );
+    }, [scheduleRemoteSave]);
 
   const value =
     useMemo<GameContextValue>(
@@ -835,259 +1415,27 @@ export function GameProvider({
         game,
         ready,
 
-        patchGame: (patch) => {
-          setGame((current) => ({
-            ...current,
-            ...patch,
-          }));
-        },
-
-        setNickname: (nickname) => {
-          setGame((current) => ({
-            ...current,
-
-            nickname:
-              nickname.trim(),
-          }));
-        },
-
-        addSteps: (steps) => {
-          if (
-            !Number.isFinite(steps) ||
-            steps <= 0
-          ) {
-            return;
-          }
-
-          const normalizedSteps =
-            Math.floor(steps);
-
-          setGame((current) => {
-            const nextTodaySteps =
-              current.todaySteps +
-              normalizedSteps;
-
-            const currentTotalSteps =
-              getGameNumber(
-                current,
-                "totalSteps",
-                0,
-              );
-
-            const nextValues = {
-              todaySteps:
-                nextTodaySteps,
-
-              weeklySteps:
-                current.weeklySteps +
-                normalizedSteps,
-
-              totalSteps:
-                currentTotalSteps +
-                normalizedSteps,
-
-              calories: Math.round(
-                nextTodaySteps * 0.04,
-              ),
-
-              water:
-                current.water +
-                Math.floor(
-                  normalizedSteps /
-                    100,
-                ),
-
-              exp:
-                current.exp +
-                Math.floor(
-                  normalizedSteps /
-                    100,
-                ),
-            } as Partial<GameState>;
-
-            return {
-              ...current,
-              ...nextValues,
-            };
-          });
-        },
-
-        addPurchase: (amount) => {
-          if (
-            !Number.isFinite(amount) ||
-            amount <= 0
-          ) {
-            return;
-          }
-
-          const normalizedAmount =
-            Math.floor(amount);
-
-          setGame((current) => {
-            const baseWater =
-              Math.floor(
-                normalizedAmount /
-                  1000,
-              );
-
-            let bonusPercent = 0;
-
-            if (current.level === 2) {
-              bonusPercent = 10;
-            } else if (
-              current.level === 3
-            ) {
-              bonusPercent = 30;
-            } else if (
-              current.level >= 4
-            ) {
-              bonusPercent = 50;
-            }
-
-            const rewardWater =
-              Math.floor(
-                baseWater *
-                  (
-                    1 +
-                    bonusPercent / 100
-                  ),
-              );
-
-            return {
-              ...current,
-
-              totalPurchase:
-                current.totalPurchase +
-                normalizedAmount,
-
-              water:
-                current.water +
-                rewardWater,
-            };
-          });
-        },
-
-        checkAttendance: () => {
-          const today =
-            getLocalDateKey();
-
-          setGame((current) => {
-            const savedDate =
-              normalizeStoredDate(
-                current.lastAttendanceDate,
-              );
-
-            if (savedDate === today) {
-              return current;
-            }
-
-            const nextAttendanceCount =
-              current.attendanceCount +
-              1;
-
-            const reward =
-              attendanceRewards[
-                nextAttendanceCount
-              ] ??
-              attendanceRewards[1];
-
-            return {
-              ...current,
-
-              lastAttendanceDate:
-                today,
-
-              attendanceCount:
-                nextAttendanceCount,
-
-              water:
-                current.water +
-                reward.water,
-            };
-          });
-        },
-
-        addInvite: () => {
-          setGame((current) => {
-            const nextCount =
-              current.invitedCount +
-              1;
-
-            const reward =
-              inviteRewards[
-                nextCount as keyof typeof inviteRewards
-              ] ?? 0;
-
-            return {
-              ...current,
-
-              invitedCount:
-                nextCount,
-
-              water:
-                current.water +
-                reward,
-            };
-          });
-        },
-
-        completeInviteReward:
-          () => {
-            setGame((current) => {
-              if (
-                !current.invitedBy
-              ) {
-                return current;
-              }
-
-              const history = {
-                id: `invite-${Date.now()}`,
-
-                inviterCode:
-                  current.invitedBy,
-
-                joinedAt:
-                  getLocalDateKey(),
-
-                reward: 500,
-              };
-
-              return {
-                ...current,
-
-                water:
-                  current.water + 500,
-
-                invitedResidents:
-                  current.invitedResidents +
-                  1,
-
-                invitedCount:
-                  current.invitedCount +
-                  1,
-
-                inviteHistory: [
-                  ...(
-                    current.inviteHistory ??
-                    []
-                  ),
-                  history,
-                ],
-              };
-            });
-          },
-
-        resetGame: () => {
-          window.localStorage.removeItem(
-            STORAGE_KEY,
-          );
-
-          setGame({
-            ...initialGameState,
-          });
-        },
+        patchGame,
+        setNickname,
+        addSteps,
+        addPurchase,
+        checkAttendance,
+        addInvite,
+        completeInviteReward,
+        resetGame,
       }),
-      [game, ready],
+      [
+        game,
+        ready,
+        patchGame,
+        setNickname,
+        addSteps,
+        addPurchase,
+        checkAttendance,
+        addInvite,
+        completeInviteReward,
+        resetGame,
+      ],
     );
 
   return (
