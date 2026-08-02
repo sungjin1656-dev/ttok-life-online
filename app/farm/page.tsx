@@ -1,9 +1,9 @@
 "use client";
 
-import styles from "./farm.module.css";
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+
+import styles from "./farm.module.css";
 
 import { Guard } from "@/components/ui/Guard";
 import { BottomNav } from "@/components/ui/BottomNav";
@@ -23,6 +23,8 @@ const SOUND_PATHS: Record<FarmSound, string> = {
   success: "/sounds/success.mp3",
   reward: "/sounds/reward.mp3",
 };
+
+const HARVEST_POINT_REWARD = 500;
 
 function getStage(growth: number) {
   if (growth >= 100) return 10;
@@ -56,29 +58,35 @@ function stageText(stage: number) {
 }
 
 function getPotImage(stage: number) {
-  const safeStage = Math.min(10, Math.max(1, stage));
-  const stageNumber = String(safeStage).padStart(2, "0");
+  const safeStage = Math.min(
+    10,
+    Math.max(1, stage),
+  );
+
+  const stageNumber = String(
+    safeStage,
+  ).padStart(2, "0");
 
   return `/crops/lucky-pot/stage${stageNumber}.png`;
 }
 
 function characterAsset(
-    characterId: string,
-    isWatering: boolean
+  characterId: string,
+  isWatering: boolean,
 ) {
-    const isBoy =
-        characterId === "hajun" ||
-        characterId === "minjun";
+  const isBoy =
+    characterId === "hajun" ||
+    characterId === "minjun";
 
-    if (isBoy) {
-        return isWatering
-            ? "/assets/characters/boy-farm-watering.png"
-            : "/assets/characters/boy-farm-standing.png";
-    }
-
+  if (isBoy) {
     return isWatering
-        ? "/assets/characters/girl-farm-watering.png"
-        : "/assets/characters/girl-farm-standing.png";
+      ? "/assets/characters/boy-farm-watering.png"
+      : "/assets/characters/boy-farm-standing.png";
+  }
+
+  return isWatering
+    ? "/assets/characters/girl-farm-watering.png"
+    : "/assets/characters/girl-farm-standing.png";
 }
 
 export default function FarmPage() {
@@ -92,23 +100,40 @@ export default function FarmPage() {
   const [isWatering, setIsWatering] =
     useState(false);
 
-  const [showWaterEffect, setShowWaterEffect] =
-    useState(false);
+  const [
+    showWaterEffect,
+    setShowWaterEffect,
+  ] = useState(false);
 
-  const [isPlantPopping, setIsPlantPopping] =
-    useState(false);
+  const [
+    isPlantPopping,
+    setIsPlantPopping,
+  ] = useState(false);
 
-  const [showCompleteEffect, setShowCompleteEffect] =
-    useState(false);
+  const [
+    showCompleteEffect,
+    setShowCompleteEffect,
+  ] = useState(false);
 
-  const [showWaterLackMessage, setShowWaterLackMessage] =
-    useState(false);
+  const [
+    showWaterLackMessage,
+    setShowWaterLackMessage,
+  ] = useState(false);
+
+  const [
+    showPointReward,
+    setShowPointReward,
+  ] = useState(false);
 
   const currentPlant = plants.find(
-    (item) => item.id === game.currentCropId,
+    (item) =>
+      item.id === game.currentCropId,
   );
 
-  const crop = getCrop(game.currentCropId);
+  const crop = getCrop(
+    game.currentCropId,
+  );
+
   const cost = wateringCost(crop);
 
   const waterings =
@@ -117,7 +142,8 @@ export default function FarmPage() {
   const growth = Math.min(
     100,
     Math.round(
-      (waterings / crop.growthCount) * 100,
+      (waterings / crop.growthCount) *
+        100,
     ),
   );
 
@@ -127,7 +153,8 @@ export default function FarmPage() {
     waterings >= crop.growthCount;
 
   const isLocked = currentPlant
-    ? game.level < currentPlant.requiredLevel
+    ? game.level <
+      currentPlant.requiredLevel
     : false;
 
   const remainingWaterings = Math.max(
@@ -135,13 +162,17 @@ export default function FarmPage() {
     crop.growthCount - waterings,
   );
 
+  const points = game.points ?? 0;
+
   const statusMessage = useMemo(() => {
     if (isLocked) {
-      return `레벨 ${currentPlant?.requiredLevel ?? 1}부터 이용할 수 있어요`;
+      return `레벨 ${
+        currentPlant?.requiredLevel ?? 1
+      }부터 이용할 수 있어요`;
     }
 
     if (ready) {
-      return "행운의 꽃이 완성됐어요! 보상을 선택해보세요.";
+      return `행운의 꽃이 완성됐어요! 수확하면 ${HARVEST_POINT_REWARD}P를 받을 수 있어요.`;
     }
 
     if (isWatering) {
@@ -163,31 +194,44 @@ export default function FarmPage() {
     cost,
   ]);
 
-  const playSound = (sound: FarmSound) => {
+  const playSound = (
+    sound: FarmSound,
+  ) => {
     try {
-      let audio = audioRefs.current[sound];
+      let audio =
+        audioRefs.current[sound];
 
       if (!audio) {
-        audio = new Audio(SOUND_PATHS[sound]);
+        audio = new Audio(
+          SOUND_PATHS[sound],
+        );
+
         audio.preload = "auto";
         audio.volume = 0.75;
-        audioRefs.current[sound] = audio;
+
+        audioRefs.current[sound] =
+          audio;
       }
 
       audio.currentTime = 0;
 
       void audio.play().catch(() => {
-        // 사운드 파일이 아직 없거나 브라우저가 재생을 막아도
-        // 게임 동작은 계속 진행합니다.
+        // 사운드 파일이 없거나
+        // 브라우저가 재생을 막아도
+        // 게임은 정상 진행합니다.
       });
     } catch {
-      // 오디오 미지원 환경에서도 게임 동작 유지
+      // 오디오 미지원 환경에서도
+      // 게임은 정상 진행합니다.
     }
   };
 
-  const vibrate = (pattern: number | number[]) => {
+  const vibrate = (
+    pattern: number | number[],
+  ) => {
     if (
-      typeof navigator !== "undefined" &&
+      typeof navigator !==
+        "undefined" &&
       "vibrate" in navigator
     ) {
       navigator.vibrate(pattern);
@@ -196,7 +240,9 @@ export default function FarmPage() {
 
   useEffect(() => {
     return () => {
-      Object.values(audioRefs.current).forEach((audio) => {
+      Object.values(
+        audioRefs.current,
+      ).forEach((audio) => {
         audio?.pause();
       });
     };
@@ -204,6 +250,7 @@ export default function FarmPage() {
 
   const showLackMessage = () => {
     setShowWaterLackMessage(true);
+
     vibrate([30, 35, 30]);
 
     window.setTimeout(() => {
@@ -212,7 +259,11 @@ export default function FarmPage() {
   };
 
   const waterPlant = () => {
-    if (ready || isWatering || isLocked) {
+    if (
+      ready ||
+      isWatering ||
+      isLocked
+    ) {
       return;
     }
 
@@ -239,24 +290,26 @@ export default function FarmPage() {
       setIsPlantPopping(true);
 
       patchGame({
-        water: game.water - cost,
+        water:
+          game.water - cost,
 
         cropWaterings:
           nextWaterings,
 
         cropGrowth: Math.round(
-          (nextWaterings / crop.growthCount) * 100,
+          (nextWaterings /
+            crop.growthCount) *
+            100,
         ),
 
-        cropName:
-          crop.name,
+        cropName: crop.name,
 
-        cropEmoji:
-          crop.emoji,
+        cropEmoji: crop.emoji,
       });
 
       if (
-        nextWaterings >= crop.growthCount
+        nextWaterings >=
+        crop.growthCount
       ) {
         window.setTimeout(() => {
           playSound("success");
@@ -281,7 +334,7 @@ export default function FarmPage() {
     }, 2800);
   };
 
-  const receiveReward = () => {
+  const harvestPlant = () => {
     if (!ready) {
       return;
     }
@@ -289,36 +342,30 @@ export default function FarmPage() {
     playSound("reward");
     vibrate([35, 35, 60]);
 
-    const reward = {
-      id: `reward-${Date.now()}`,
-      productId: crop.id,
-      productName: crop.name,
-      emoji: crop.emoji,
-      quantity: "1개",
-      status: "보관 중" as const,
-      deliveryAvailable: true,
-      harvestedAt:
-        new Date().toLocaleDateString("ko-KR"),
-    };
-
     patchGame({
+      points:
+        points +
+        HARVEST_POINT_REWARD,
+
       cropGrowth: 0,
+
       cropWaterings: 0,
 
       harvestedCrops: {
         ...(game.harvestedCrops ?? {}),
 
         [crop.id]:
-          (game.harvestedCrops?.[crop.id] ?? 0) + 1,
+          (game.harvestedCrops?.[
+            crop.id
+          ] ?? 0) + 1,
       },
-
-      rewards: [
-        ...(game.rewards ?? []),
-        reward,
-      ],
     });
 
-    router.push("/rewards");
+    setShowPointReward(true);
+
+    window.setTimeout(() => {
+      router.push("/exchange");
+    }, 1300);
   };
 
   const mainAction = () => {
@@ -327,7 +374,7 @@ export default function FarmPage() {
     }
 
     if (ready) {
-      receiveReward();
+      harvestPlant();
       return;
     }
 
@@ -340,14 +387,15 @@ export default function FarmPage() {
         className={`${styles.scope} farm-master-v2`}
       >
         <section className="farm-master-v2-shell">
-
           {/* 상단 HUD */}
 
           <header className="farm-master-v2-header">
             <button
               type="button"
               className="farm-master-v2-back"
-              onClick={() => router.push("/home")}
+              onClick={() =>
+                router.push("/home")
+              }
               aria-label="홈으로 돌아가기"
             >
               ‹
@@ -355,18 +403,20 @@ export default function FarmPage() {
 
             <div className="farm-master-v2-heading">
               <span>나의 작은 정원</span>
+
               <h1>행운의 화분</h1>
             </div>
 
             <div className="farm-master-v2-wallet">
-              <span aria-hidden="true">💧</span>
+              <span aria-hidden="true">
+                💧
+              </span>
 
               <strong>
                 {game.water.toLocaleString()}
               </strong>
             </div>
           </header>
-
 
           {/* 메인 정원 게임 장면 */}
 
@@ -383,27 +433,34 @@ export default function FarmPage() {
               <span>STAGE</span>
 
               <strong>
-                {String(stage).padStart(2, "0")}
+                {String(stage).padStart(
+                  2,
+                  "0",
+                )}
               </strong>
             </div>
 
-           <div
-  className={`farm-master-v2-character ${
-    isWatering ? "watering" : "standing"
-  }`}
->
+            <div
+              className={`farm-master-v2-character ${
+                isWatering
+                  ? "watering"
+                  : "standing"
+              }`}
+            >
               <img
-    src={characterAsset(
-        game.characterId,
-        isWatering
-    )}
-    alt="농장 캐릭터"
-/>
+                src={characterAsset(
+                  game.characterId,
+                  isWatering,
+                )}
+                alt="농장 캐릭터"
+              />
             </div>
 
             <div
               className={`farm-master-v2-pot ${
-                isPlantPopping ? "plant-pop" : ""
+                isPlantPopping
+                  ? "plant-pop"
+                  : ""
               }`}
             >
               <div className="farm-master-v2-pot-glow" />
@@ -414,7 +471,6 @@ export default function FarmPage() {
               />
             </div>
 
-
             {/* 물주기 효과 */}
 
             {showWaterEffect && (
@@ -422,17 +478,35 @@ export default function FarmPage() {
                 className="farm-master-v2-water-effect"
                 aria-hidden="true"
               >
-                <span className="drop drop-1">💧</span>
-                <span className="drop drop-2">💧</span>
-                <span className="drop drop-3">💧</span>
-                <span className="drop drop-4">💧</span>
+                <span className="drop drop-1">
+                  💧
+                </span>
 
-                <span className="spark spark-1">✨</span>
-                <span className="spark spark-2">✨</span>
-                <span className="spark spark-3">✨</span>
+                <span className="drop drop-2">
+                  💧
+                </span>
+
+                <span className="drop drop-3">
+                  💧
+                </span>
+
+                <span className="drop drop-4">
+                  💧
+                </span>
+
+                <span className="spark spark-1">
+                  ✨
+                </span>
+
+                <span className="spark spark-2">
+                  ✨
+                </span>
+
+                <span className="spark spark-3">
+                  ✨
+                </span>
               </div>
             )}
-
 
             {/* 100% 완료 효과 */}
 
@@ -450,11 +524,50 @@ export default function FarmPage() {
                 </strong>
 
                 <span>
-                  보상을 선택할 수 있어요
+                  수확하면{" "}
+                  {HARVEST_POINT_REWARD}P를
+                  받을 수 있어요
                 </span>
               </div>
             )}
 
+            {/* 포인트 획득 효과 */}
+
+            {showPointReward && (
+              <div
+                className={
+                  styles.pointRewardOverlay
+                }
+                role="status"
+                aria-live="polite"
+              >
+                <div
+                  className={
+                    styles.pointRewardCard
+                  }
+                >
+                  <span aria-hidden="true">
+                    🎉
+                  </span>
+
+                  <strong>
+                    +
+                    {HARVEST_POINT_REWARD}
+                    P
+                  </strong>
+
+                  <p>
+                    수확 포인트를
+                    받았어요!
+                  </p>
+
+                  <small>
+                    상품 선택 화면으로
+                    이동합니다.
+                  </small>
+                </div>
+              </div>
+            )}
 
             {/* 상태 말풍선 */}
 
@@ -470,7 +583,6 @@ export default function FarmPage() {
               </span>
             </div>
 
-
             {/* 물방울 부족 안내 */}
 
             {showWaterLackMessage && (
@@ -483,25 +595,29 @@ export default function FarmPage() {
                 </strong>
 
                 <span>
-                  현재 {game.water.toLocaleString()}개
-                  · 필요 {cost.toLocaleString()}개
+                  현재{" "}
+                  {game.water.toLocaleString()}
+                  개 · 필요{" "}
+                  {cost.toLocaleString()}
+                  개
                 </span>
 
                 <small>
-                  걷기 또는 쇼핑으로 물방울을
-                  모아보세요.
+                  걷기 또는 쇼핑으로
+                  물방울을 모아보세요.
                 </small>
               </div>
             )}
           </section>
-
 
           {/* 성장 정보 패널 */}
 
           <section className="farm-master-v2-control">
             <div className="farm-master-v2-control-header">
               <div>
-                <span>현재 성장률</span>
+                <span>
+                  현재 성장률
+                </span>
 
                 <strong>
                   {growth}%
@@ -509,10 +625,13 @@ export default function FarmPage() {
               </div>
 
               <div>
-                <span>남은 물주기</span>
+                <span>
+                  남은 물주기
+                </span>
 
                 <strong>
-                  {remainingWaterings}회
+                  {remainingWaterings}
+                  회
                 </strong>
               </div>
             </div>
@@ -521,7 +640,11 @@ export default function FarmPage() {
               className="farm-master-v2-progress"
               aria-label={`성장률 ${growth}%`}
             >
-              <i style={{ width: `${growth}%` }} />
+              <i
+                style={{
+                  width: `${growth}%`,
+                }}
+              />
 
               <b
                 style={{
@@ -536,10 +659,14 @@ export default function FarmPage() {
             </div>
 
             <div className="farm-master-v2-availability">
-              <span aria-hidden="true">⏱️</span>
+              <span aria-hidden="true">
+                ⏱️
+              </span>
 
               <div>
-                <small>다음 물주기</small>
+                <small>
+                  다음 물주기
+                </small>
 
                 <strong>
                   {ready
@@ -565,52 +692,143 @@ export default function FarmPage() {
               {isLocked ? (
                 <>
                   🔒 레벨{" "}
-                  {currentPlant?.requiredLevel ?? 1}
+                  {currentPlant
+                    ?.requiredLevel ?? 1}
                   필요
                 </>
               ) : ready ? (
                 <>
-                  <span aria-hidden="true">🎁</span>
-                  보상 선택하기
+                  <span aria-hidden="true">
+                    🌸
+                  </span>
+
+                  수확하고{" "}
+                  {HARVEST_POINT_REWARD}
+                  P 받기
                 </>
               ) : isWatering ? (
                 <>
-                  <span aria-hidden="true">💧</span>
+                  <span aria-hidden="true">
+                    💧
+                  </span>
+
                   물을 주는 중...
                 </>
               ) : (
                 <>
-                  <span aria-hidden="true">💧</span>
+                  <span aria-hidden="true">
+                    💧
+                  </span>
+
                   물주기
-                  <b>{cost.toLocaleString()}</b>
+
+                  <b>
+                    {cost.toLocaleString()}
+                  </b>
                 </>
               )}
             </button>
 
             {!ready && (
               <p className="farm-master-v2-cost-guide">
-                물방울 {cost.toLocaleString()}개를 사용하면
-                다음 성장 단계로 이동합니다.
+                물방울{" "}
+                {cost.toLocaleString()}
+                개를 사용하면 다음 성장
+                단계로 이동합니다.
               </p>
             )}
           </section>
 
+          {/* 상품 선택 바로가기 */}
+
+          <section
+            className={
+              styles.exchangeCard
+            }
+          >
+            <div
+              className={
+                styles.exchangeCardTop
+              }
+            >
+              <div
+                className={
+                  styles.exchangeCardCopy
+                }
+              >
+                <span
+                  className={
+                    styles.exchangeEyebrow
+                  }
+                >
+                  TTOK POINT
+                </span>
+
+                <h2>
+                  원하는 상품을
+                  선택하세요
+                </h2>
+
+                <p>
+                  식물을 수확해 모은
+                  포인트로 원하는 상품을
+                  선택할 수 있어요.
+                </p>
+              </div>
+
+              <div
+                className={
+                  styles.exchangePoint
+                }
+              >
+                <span>
+                  보유 포인트
+                </span>
+
+                <strong>
+                  {points.toLocaleString()}
+                  P
+                </strong>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={
+                styles.exchangeButton
+              }
+              onClick={() =>
+                router.push("/exchange")
+              }
+            >
+              <span aria-hidden="true">
+                🛒
+              </span>
+
+              상품 선택하러 가기
+
+              <b aria-hidden="true">
+                ›
+              </b>
+            </button>
+          </section>
 
           {/* 성장 단계 */}
 
           <section className="farm-master-v2-stages">
             <header>
               <div>
-                <span>행운의 화분 성장 기록</span>
+                <span>
+                  행운의 화분 성장 기록
+                </span>
 
                 <strong>
-                  10단계까지 정성껏 키워보세요
+                  10단계까지 정성껏
+                  키워보세요
                 </strong>
               </div>
 
-              <b>
-                {stage}/10
-              </b>
+              <b>{stage}/10</b>
             </header>
 
             <div className="farm-master-v2-stage-list">
@@ -628,15 +846,21 @@ export default function FarmPage() {
                   <div
                     key={item}
                     className={[
-                      active ? "active" : "",
-                      current ? "current" : "",
+                      active
+                        ? "active"
+                        : "",
+                      current
+                        ? "current"
+                        : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
                   >
                     <div>
                       <img
-                        src={getPotImage(item)}
+                        src={getPotImage(
+                          item,
+                        )}
                         alt={`${item}단계`}
                       />
 
@@ -656,20 +880,24 @@ export default function FarmPage() {
             </div>
           </section>
 
-
           {/* 하단 안내 */}
 
           <section className="farm-master-v2-guide">
-            <span aria-hidden="true">🌸</span>
+            <span aria-hidden="true">
+              🌸
+            </span>
 
             <div>
               <strong>
-                행운의 꽃을 완성해보세요
+                행운의 꽃을
+                완성해보세요
               </strong>
 
               <p>
-                성장률이 100%가 되면 보상함에서
-                원하는 보상을 선택할 수 있습니다.
+                성장률이 100%가 되면
+                500P를 받고 원하는
+                상품을 선택할 수
+                있습니다.
               </p>
             </div>
           </section>

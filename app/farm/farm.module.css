@@ -1019,3 +1019,120 @@
     0.62s ease-in-out
     infinite alternate;
 }
+.exchangeCard {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid rgba(47, 134, 230, 0.16);
+  border-radius: 24px;
+  background:
+    radial-gradient(
+      circle at 92% 0%,
+      rgba(78, 163, 241, 0.18),
+      transparent 38%
+    ),
+    linear-gradient(145deg, #ffffff 0%, #f2f9ff 100%);
+  box-shadow: 0 12px 30px rgba(23, 59, 102, 0.1);
+}
+
+.exchangeCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.exchangeEyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: #2f86e6;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.exchangeCard h2 {
+  margin: 0;
+  color: #173b66;
+  font-size: 18px;
+  font-weight: 1000;
+}
+
+.exchangeCard p {
+  margin: 7px 0 0;
+  color: #5e7895;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.exchangePoint {
+  min-width: 92px;
+  padding: 10px 12px;
+  border: 1px solid rgba(78, 163, 241, 0.18);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  text-align: right;
+}
+
+.exchangePoint span {
+  display: block;
+  color: #7a91aa;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.exchangePoint strong {
+  display: block;
+  margin-top: 2px;
+  color: #2f86e6;
+  font-size: 20px;
+  font-weight: 1000;
+}
+
+.exchangeButton {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 15px;
+  padding: 0 17px;
+  border: 0;
+  border-radius: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #4ea3f1 0%, #2f86e6 100%);
+  box-shadow: 0 8px 18px rgba(47, 134, 230, 0.26);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.exchangeButton b {
+  margin-left: auto;
+  font-size: 25px;
+  line-height: 1;
+}
+
+.exchangeButton:active {
+  transform: translateY(1px);
+}
+
+@media (max-width: 390px) {
+  .exchangeCard {
+    padding: 15px;
+  }
+
+  .exchangeCardTop {
+    gap: 9px;
+  }
+
+  .exchangeCard h2 {
+    font-size: 16px;
+  }
+
+  .exchangePoint {
+    min-width: 82px;
+  }
+}
