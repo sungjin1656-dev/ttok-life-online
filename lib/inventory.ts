@@ -1,5 +1,10 @@
 export type InventoryItemCode =
-  | "lucky_flower"
+  | "carrot-1kg"
+  | "onion-1kg"
+  | "egg-10"
+  | "tomato-5kg"
+  | "potato-5kg"
+  | "shine-muscat"
   | "egg30"
   | "apple5"
   | "coupon5000"
@@ -34,19 +39,70 @@ export const INVENTORY_ITEM_MASTER: Record<
   string,
   InventoryItemMaster
 > = {
-  lucky_flower: {
-    itemCode: "lucky_flower",
-    productName: "행운의 꽃",
-    shortName: "행운의 꽃",
-    emoji: "🌸",
-    image:
-      "/crops/lucky-pot/stage10.png",
+  "carrot-1kg": {
+    itemCode: "carrot-1kg",
+    productName: "당근 1kg",
+    shortName: "당근 1kg",
+    emoji: "🥕",
     description:
-      "행운의 화분을 완성해 받은 수확 보상입니다.",
+      "포인트로 교환한 당근 상품입니다.",
     quantityLabel: "개",
-    deliveryAvailable: false,
-    unavailableMessage:
-      "행운의 꽃은 포인트 보상으로 교환됩니다.",
+    deliveryAvailable: true,
+  },
+
+  "onion-1kg": {
+    itemCode: "onion-1kg",
+    productName: "양파 1kg",
+    shortName: "양파 1kg",
+    emoji: "🧅",
+    description:
+      "포인트로 교환한 양파 상품입니다.",
+    quantityLabel: "개",
+    deliveryAvailable: true,
+  },
+
+  "egg-10": {
+    itemCode: "egg-10",
+    productName: "신선 계란 10구",
+    shortName: "계란 10구",
+    emoji: "🥚",
+    description:
+      "포인트로 교환한 계란 상품입니다.",
+    quantityLabel: "개",
+    deliveryAvailable: true,
+  },
+
+  "tomato-5kg": {
+    itemCode: "tomato-5kg",
+    productName: "토마토 5kg",
+    shortName: "토마토 5kg",
+    emoji: "🍅",
+    description:
+      "포인트로 교환한 토마토 상품입니다.",
+    quantityLabel: "개",
+    deliveryAvailable: true,
+  },
+
+  "potato-5kg": {
+    itemCode: "potato-5kg",
+    productName: "감자 5kg",
+    shortName: "감자 5kg",
+    emoji: "🥔",
+    description:
+      "포인트로 교환한 감자 상품입니다.",
+    quantityLabel: "개",
+    deliveryAvailable: true,
+  },
+
+  "shine-muscat": {
+    itemCode: "shine-muscat",
+    productName: "샤인머스켓",
+    shortName: "샤인머스켓",
+    emoji: "🍇",
+    description:
+      "포인트로 교환한 과일 상품입니다.",
+    quantityLabel: "개",
+    deliveryAvailable: true,
   },
 
   egg30: {
