@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -19,23 +20,43 @@ type SensorMode =
   | "android"
   | "browser";
 
-type DeviceMotionPermissionEvent = typeof DeviceMotionEvent & {
-  requestPermission?: () => Promise<
-    "granted" | "denied"
-  >;
+type DeviceMotionPermissionEvent =
+  typeof DeviceMotionEvent & {
+    requestPermission?: () => Promise<
+      "granted" | "denied"
+    >;
+  };
+
+type LiveGameSnapshot = {
+  todaySteps: number;
+  weeklySteps: number;
+  totalSteps: number;
+  calories: number;
+  water: number;
+  exp: number;
 };
 
 function timeText(seconds: number) {
-  const minutes = Math.floor(seconds / 60);
-  const remainSeconds = seconds % 60;
+  const minutes = Math.floor(
+    seconds / 60,
+  );
 
-  return `${String(minutes).padStart(2, "0")}:${String(
-    remainSeconds,
-  ).padStart(2, "0")}`;
+  const remainSeconds =
+    seconds % 60;
+
+  return `${String(minutes).padStart(
+    2,
+    "0",
+  )}:${String(remainSeconds).padStart(
+    2,
+    "0",
+  )}`;
 }
 
 function isMobileBrowser() {
-  if (typeof navigator === "undefined") {
+  if (
+    typeof navigator === "undefined"
+  ) {
     return false;
   }
 
@@ -44,11 +65,51 @@ function isMobileBrowser() {
   );
 }
 
+function normalizeNumber(
+  value: unknown,
+  fallback = 0,
+) {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value)
+  ) {
+    return fallback;
+  }
+
+  return Math.max(
+    0,
+    Math.floor(value),
+  );
+}
+
+function getTotalSteps(
+  game: unknown,
+) {
+  if (
+    !game ||
+    typeof game !== "object"
+  ) {
+    return 0;
+  }
+
+  const record =
+    game as Record<string, unknown>;
+
+  return normalizeNumber(
+    record.totalSteps,
+    0,
+  );
+}
+
 declare global {
   interface Window {
-    updateSteps?: (steps: number) => void;
+    updateSteps?: (
+      steps: number,
+    ) => void;
 
-    setStartSteps?: (steps: number) => void;
+    setStartSteps?: (
+      steps: number,
+    ) => void;
 
     onStepSensorError?: (
       message?: string,
@@ -62,22 +123,35 @@ declare global {
 }
 
 export default function WalkPage() {
-  const { game, addSteps } = useGame();
+  const {
+    game,
+    patchGame,
+  } = useGame();
 
   const [walking, setWalking] =
     useState(false);
 
-  const [sessionSteps, setSessionSteps] =
-    useState(game.todaySteps || 0);
+  const [
+    sessionSteps,
+    setSessionSteps,
+  ] = useState(
+    game.todaySteps || 0,
+  );
 
   const [seconds, setSeconds] =
     useState(0);
 
-  const [sensorError, setSensorError] =
-    useState("");
+  const [
+    sensorError,
+    setSensorError,
+  ] = useState("");
 
-  const [sensorMode, setSensorMode] =
-    useState<SensorMode>("none");
+  const [
+    sensorMode,
+    setSensorMode,
+  ] = useState<SensorMode>(
+    "none",
+  );
 
   const timerRef =
     useRef<ReturnType<
@@ -85,45 +159,62 @@ export default function WalkPage() {
     > | null>(null);
 
   /*
-   * React 상태의 최신 walking 값을
-   * Android JavaScript 콜백에서 확인하기 위한 ref입니다.
+   * Android 및 브라우저 센서 콜백에서
+   * 최신 산책 상태를 확인합니다.
    */
-  const walkingRef = useRef(false);
+  const walkingRef =
+    useRef(false);
 
   /*
-   * 산책을 처음 시작했을 당시 저장된 오늘 걸음수입니다.
-   * 종료할 때 이번 산책에서 늘어난 걸음만 저장합니다.
+   * React game 값의 최신 상태를
+   * 센서 콜백에서 안전하게 사용합니다.
    */
-  const baseTodaySteps = useRef(
-    game.todaySteps || 0,
-  );
+  const liveGameRef =
+    useRef<LiveGameSnapshot>({
+      todaySteps:
+        game.todaySteps || 0,
+
+      weeklySteps:
+        game.weeklySteps || 0,
+
+      totalSteps:
+        getTotalSteps(game),
+
+      calories:
+        game.calories || 0,
+
+      water:
+        game.water || 0,
+
+      exp:
+        game.exp || 0,
+    });
 
   /*
-   * Android 센서를 새로 시작하거나 재개할 때
-   * 화면에 이미 표시되던 걸음수입니다.
+   * Android 센서 구간 시작 시
+   * 이미 게임에 반영되어 있던 걸음수입니다.
    */
-  const segmentBaseSteps = useRef(
-    game.todaySteps || 0,
-  );
+  const segmentBaseSteps =
+    useRef(
+      game.todaySteps || 0,
+    );
 
   /*
-   * Android STEP_COUNTER의 시작 시점 누적값입니다.
-   *
-   * 예:
-   * 센서 시작값 4,191
-   * 현재 센서값 4,250
-   * 이번 구간 증가 59걸음
+   * Android STEP_COUNTER의
+   * 실제 시작 누적값입니다.
    */
-  const startSensorSteps = useRef(0);
+  const startSensorSteps =
+    useRef(0);
 
   /*
-   * 일반 모바일 브라우저용 모션 센서 상태입니다.
+   * 브라우저 모션 센서 상태입니다.
    */
   const browserMotionHandler =
     useRef<
-      ((event: DeviceMotionEvent) => void) |
-        null
-    >(null);
+      (
+        event: DeviceMotionEvent,
+      ) => void
+    | null>(null);
 
   const browserGravity =
     useRef(9.8);
@@ -138,28 +229,207 @@ export default function WalkPage() {
     useRef(false);
 
   useEffect(() => {
-    walkingRef.current = walking;
+    walkingRef.current =
+      walking;
   }, [walking]);
 
+  /*
+   * GameContext에서 서버 데이터가 내려오거나
+   * 다른 화면에서 값이 바뀌면 최신값을 반영합니다.
+   *
+   * 산책 중에는 센서값이 기준이므로
+   * sessionSteps를 강제로 되돌리지 않습니다.
+   */
   useEffect(() => {
-    if (!walking) {
+    const nextSnapshot = {
+      todaySteps:
+        normalizeNumber(
+          game.todaySteps,
+          0,
+        ),
+
+      weeklySteps:
+        normalizeNumber(
+          game.weeklySteps,
+          0,
+        ),
+
+      totalSteps:
+        getTotalSteps(game),
+
+      calories:
+        normalizeNumber(
+          game.calories,
+          0,
+        ),
+
+      water:
+        normalizeNumber(
+          game.water,
+          0,
+        ),
+
+      exp:
+        normalizeNumber(
+          game.exp,
+          0,
+        ),
+    };
+
+    liveGameRef.current =
+      nextSnapshot;
+
+    if (!walkingRef.current) {
       setSessionSteps(
-        game.todaySteps || 0,
+        nextSnapshot.todaySteps,
       );
 
-      baseTodaySteps.current =
-        game.todaySteps || 0;
-
       segmentBaseSteps.current =
-        game.todaySteps || 0;
+        nextSnapshot.todaySteps;
     }
-  }, [game.todaySteps, walking]);
+  }, [
+    game.todaySteps,
+    game.weeklySteps,
+    game.calories,
+    game.water,
+    game.exp,
+    game,
+  ]);
+
+  /*
+   * 절대 오늘 걸음수를 GameContext에 반영합니다.
+   *
+   * 걸음이 1개 증가할 때마다:
+   * - todaySteps 증가
+   * - weeklySteps 증가
+   * - totalSteps 증가
+   * - calories 재계산
+   * - 100걸음 경계 통과 시 물방울/EXP 지급
+   *
+   * GameContext가 localStorage 캐시와
+   * Supabase 자동 저장을 담당합니다.
+   */
+  const applyLiveTodaySteps =
+    useCallback(
+      (
+        requestedTodaySteps: number,
+      ) => {
+        if (
+          !Number.isFinite(
+            requestedTodaySteps,
+          )
+        ) {
+          return;
+        }
+
+        const current =
+          liveGameRef.current;
+
+        const nextTodaySteps =
+          Math.max(
+            current.todaySteps,
+            Math.floor(
+              requestedTodaySteps,
+            ),
+          );
+
+        const addedSteps =
+          nextTodaySteps -
+          current.todaySteps;
+
+        if (addedSteps <= 0) {
+          setSessionSteps(
+            nextTodaySteps,
+          );
+
+          return;
+        }
+
+        const previousWaterUnits =
+          Math.floor(
+            current.todaySteps / 100,
+          );
+
+        const nextWaterUnits =
+          Math.floor(
+            nextTodaySteps / 100,
+          );
+
+        const earnedUnits =
+          Math.max(
+            0,
+            nextWaterUnits -
+              previousWaterUnits,
+          );
+
+        const nextSnapshot: LiveGameSnapshot =
+          {
+            todaySteps:
+              nextTodaySteps,
+
+            weeklySteps:
+              current.weeklySteps +
+              addedSteps,
+
+            totalSteps:
+              current.totalSteps +
+              addedSteps,
+
+            calories:
+              Math.round(
+                nextTodaySteps *
+                  0.04,
+              ),
+
+            water:
+              current.water +
+              earnedUnits,
+
+            exp:
+              current.exp +
+              earnedUnits,
+          };
+
+        /*
+         * 연속 센서 이벤트에서도 이전 값이
+         * 중복 사용되지 않도록 ref를 먼저 갱신합니다.
+         */
+        liveGameRef.current =
+          nextSnapshot;
+
+        setSessionSteps(
+          nextTodaySteps,
+        );
+
+        patchGame({
+          todaySteps:
+            nextSnapshot.todaySteps,
+
+          weeklySteps:
+            nextSnapshot.weeklySteps,
+
+          totalSteps:
+            nextSnapshot.totalSteps,
+
+          calories:
+            nextSnapshot.calories,
+
+          water:
+            nextSnapshot.water,
+
+          exp:
+            nextSnapshot.exp,
+        } as Partial<typeof game>);
+      },
+      [
+        patchGame,
+      ],
+    );
 
   /*
    * Android WebView 브리지
    *
-   * Android에서 다음처럼 호출합니다.
-   *
+   * Android 호출 예:
    * window.setStartSteps(4191)
    * window.updateSteps(4250)
    */
@@ -167,7 +437,9 @@ export default function WalkPage() {
     window.setStartSteps = (
       steps: number,
     ) => {
-      if (!Number.isFinite(steps)) {
+      if (
+        !Number.isFinite(steps)
+      ) {
         return;
       }
 
@@ -180,23 +452,31 @@ export default function WalkPage() {
     ) => {
       if (
         !walkingRef.current ||
-        !Number.isFinite(currentSteps)
+        !Number.isFinite(
+          currentSteps,
+        )
       ) {
         return;
       }
 
       const normalizedCurrent =
-        Math.floor(currentSteps);
+        Math.floor(
+          currentSteps,
+        );
 
-      const walkingSteps = Math.max(
-        0,
-        normalizedCurrent -
-          startSensorSteps.current,
-      );
+      const walkingSteps =
+        Math.max(
+          0,
+          normalizedCurrent -
+            startSensorSteps.current,
+        );
 
-      setSessionSteps(
+      const nextTodaySteps =
         segmentBaseSteps.current +
-          walkingSteps,
+        walkingSteps;
+
+      applyLiveTodaySteps(
+        nextTodaySteps,
       );
     };
 
@@ -208,8 +488,10 @@ export default function WalkPage() {
           "걸음 센서를 사용할 수 없습니다.",
       );
 
+      walkingRef.current =
+        false;
+
       setWalking(false);
-      walkingRef.current = false;
       setSensorMode("none");
     };
 
@@ -218,67 +500,91 @@ export default function WalkPage() {
       delete window.setStartSteps;
       delete window.onStepSensorError;
     };
-  }, []);
+  }, [
+    applyLiveTodaySteps,
+  ]);
 
   /*
-   * 산책 시간
+   * 산책 시간 측정
    */
   useEffect(() => {
     if (!walking) {
       return;
     }
 
-    timerRef.current = setInterval(
-      () => {
+    timerRef.current =
+      setInterval(() => {
         setSeconds(
-          (value) => value + 1,
+          (value) =>
+            value + 1,
         );
-      },
-      1000,
-    );
+      }, 1000);
 
     return () => {
-      if (timerRef.current) {
-        clearInterval(
-          timerRef.current,
-        );
-
-        timerRef.current = null;
+      if (!timerRef.current) {
+        return;
       }
+
+      clearInterval(
+        timerRef.current,
+      );
+
+      timerRef.current =
+        null;
     };
   }, [walking]);
 
   /*
-   * 페이지에서 벗어날 때 센서를 정리합니다.
+   * 브라우저 모션 센서를 정지합니다.
+   */
+  const stopBrowserSensor =
+    useCallback(() => {
+      if (
+        !browserMotionHandler.current
+      ) {
+        return;
+      }
+
+      window.removeEventListener(
+        "devicemotion",
+        browserMotionHandler.current,
+      );
+
+      browserMotionHandler.current =
+        null;
+    }, []);
+
+  /*
+   * 페이지 이탈 시 센서 정리
    */
   useEffect(() => {
     return () => {
-      window.removeEventListener(
-        "devicemotion",
-        browserMotionHandler.current as EventListener,
-      );
+      stopBrowserSensor();
 
       try {
-        window.Android?.stopStepSensor?.();
+        window.Android
+          ?.stopStepSensor?.();
       } catch {
-        // 앱 브리지가 없어도 정상 종료합니다.
+        // Android 브리지가 없어도 정상 종료합니다.
       }
     };
-  }, []);
+  }, [
+    stopBrowserSensor,
+  ]);
 
   /*
-   * 걸음수 기준 보상
-   *
-   * GameContext의 addSteps()와 동일하게
-   * 100걸음당 물방울 1개로 표시합니다.
+   * 화면 표시값은 GameContext에 반영된
+   * 현재 오늘 걸음수를 기준으로 계산합니다.
    */
-  const calories = Math.round(
-    sessionSteps * 0.04,
-  );
+  const calories =
+    Math.round(
+      sessionSteps * 0.04,
+    );
 
-  const water = Math.floor(
-    sessionSteps / 100,
-  );
+  const water =
+    Math.floor(
+      sessionSteps / 100,
+    );
 
   const isFemaleCharacter =
     useMemo(() => {
@@ -294,32 +600,17 @@ export default function WalkPage() {
         "girl",
         "female",
       ].includes(id);
-    }, [game.characterId]);
+    }, [
+      game.characterId,
+    ]);
 
   const characterSrc =
     isFemaleCharacter
       ? "/character/hani_running.png"
       : "/character/hajun_running.png";
 
-  const stopBrowserSensor = () => {
-    if (
-      browserMotionHandler.current
-    ) {
-      window.removeEventListener(
-        "devicemotion",
-        browserMotionHandler.current,
-      );
-
-      browserMotionHandler.current =
-        null;
-    }
-  };
-
   /*
-   * 일반 모바일 브라우저용 모션 센서 시작
-   *
-   * 브라우저는 Android STEP_COUNTER에 직접 접근할 수 없어서
-   * 가속도 변화로 걸음을 추정합니다.
+   * 일반 모바일 브라우저 모션 센서 시작
    */
   const startBrowserSensor =
     async () => {
@@ -335,10 +626,6 @@ export default function WalkPage() {
       const motionEvent =
         DeviceMotionEvent as DeviceMotionPermissionEvent;
 
-      /*
-       * iPhone·iPad Safari에서는
-       * 사용자가 버튼을 누른 순간 권한을 요청해야 합니다.
-       */
       if (
         typeof motionEvent.requestPermission ===
         "function"
@@ -357,16 +644,24 @@ export default function WalkPage() {
 
       stopBrowserSensor();
 
-      browserGravity.current = 9.8;
-      browserLastStepTime.current = 0;
-      browserStepArmed.current = true;
+      browserGravity.current =
+        9.8;
+
+      browserLastStepTime.current =
+        0;
+
+      browserStepArmed.current =
+        true;
+
       browserSensorReceived.current =
         false;
 
       const handler = (
         event: DeviceMotionEvent,
       ) => {
-        if (!walkingRef.current) {
+        if (
+          !walkingRef.current
+        ) {
           return;
         }
 
@@ -382,63 +677,61 @@ export default function WalkPage() {
         let motionStrength = 0;
         let threshold = 1.35;
 
-        /*
-         * 중력이 제거된 acceleration을 제공하는 기기에서는
-         * 이 값을 우선 사용합니다.
-         */
         if (
           linear &&
           linear.x !== null &&
           linear.y !== null &&
           linear.z !== null
         ) {
-          motionStrength = Math.sqrt(
-            linear.x * linear.x +
-              linear.y * linear.y +
-              linear.z * linear.z,
-          );
+          motionStrength =
+            Math.sqrt(
+              linear.x *
+                linear.x +
+                linear.y *
+                  linear.y +
+                linear.z *
+                  linear.z,
+            );
 
           threshold = 1.35;
         } else if (
           includingGravity &&
-          includingGravity.x !== null &&
-          includingGravity.y !== null &&
-          includingGravity.z !== null
+          includingGravity.x !==
+            null &&
+          includingGravity.y !==
+            null &&
+          includingGravity.z !==
+            null
         ) {
-          const magnitude = Math.sqrt(
-            includingGravity.x *
-              includingGravity.x +
-              includingGravity.y *
-                includingGravity.y +
-              includingGravity.z *
-                includingGravity.z,
-          );
+          const magnitude =
+            Math.sqrt(
+              includingGravity.x *
+                includingGravity.x +
+                includingGravity.y *
+                  includingGravity.y +
+                includingGravity.z *
+                  includingGravity.z,
+            );
 
-          /*
-           * 저주파 중력값을 추정해
-           * 순간 움직임만 분리합니다.
-           */
           browserGravity.current =
             browserGravity.current *
               0.9 +
             magnitude * 0.1;
 
-          motionStrength = Math.abs(
-            magnitude -
-              browserGravity.current,
-          );
+          motionStrength =
+            Math.abs(
+              magnitude -
+                browserGravity.current,
+            );
 
           threshold = 1.05;
         } else {
           return;
         }
 
-        const now = Date.now();
+        const now =
+          Date.now();
 
-        /*
-         * 한 번의 충격이 여러 걸음으로 중복 인식되지 않도록
-         * 파형이 내려간 뒤에만 다음 걸음을 받을 수 있습니다.
-         */
         if (
           motionStrength <
           threshold * 0.42
@@ -455,10 +748,6 @@ export default function WalkPage() {
           return;
         }
 
-        /*
-         * 280ms보다 짧은 간격은 흔들기나 중복 충격으로 보고
-         * 걸음으로 인정하지 않습니다.
-         */
         if (
           now -
             browserLastStepTime.current <
@@ -467,11 +756,9 @@ export default function WalkPage() {
           return;
         }
 
-        /*
-         * 너무 강한 단발 충격은 휴대폰 흔들기 가능성이 높아
-         * 걸음으로 인정하지 않습니다.
-         */
-        if (motionStrength > 9.5) {
+        if (
+          motionStrength > 9.5
+        ) {
           browserStepArmed.current =
             false;
 
@@ -484,8 +771,9 @@ export default function WalkPage() {
         browserLastStepTime.current =
           now;
 
-        setSessionSteps(
-          (current) => current + 1,
+        applyLiveTodaySteps(
+          liveGameRef.current
+            .todaySteps + 1,
         );
       };
 
@@ -500,14 +788,9 @@ export default function WalkPage() {
         },
       );
 
-      /*
-       * 권한은 허용됐지만 실제 센서 이벤트가 오지 않는
-       * 브라우저를 안내합니다.
-       */
       window.setTimeout(() => {
         if (
           walkingRef.current &&
-          sensorMode === "browser" &&
           !browserSensorReceived.current
         ) {
           setSensorError(
@@ -517,76 +800,91 @@ export default function WalkPage() {
       }, 3000);
     };
 
-  const startWalking = async () => {
-    setSensorError("");
-
-    baseTodaySteps.current =
-      game.todaySteps || 0;
-
-    segmentBaseSteps.current =
-      sessionSteps;
-
-    setSeconds(0);
-
-    /*
-     * 먼저 walking 상태를 ref에 적용해야
-     * Android가 즉시 값을 보내도 버려지지 않습니다.
-     */
-    walkingRef.current = true;
-    setWalking(true);
-
-    try {
-      /*
-       * Android 앱 WebView
-       */
-      if (
-        typeof window.Android
-          ?.startStepSensor ===
-        "function"
-      ) {
-        setSensorMode("android");
-
-        window.Android.startStepSensor();
-
-        return;
-      }
+  const startWalking =
+    async () => {
+      setSensorError("");
 
       /*
-       * 일반 모바일 브라우저
+       * 현재 GameContext 걸음수를
+       * 새 센서 구간의 기준으로 설정합니다.
        */
-      if (isMobileBrowser()) {
-        setSensorMode("browser");
+      segmentBaseSteps.current =
+        liveGameRef.current.todaySteps;
 
-        await startBrowserSensor();
+      setSessionSteps(
+        liveGameRef.current.todaySteps,
+      );
 
-        return;
+      setSeconds(0);
+
+      walkingRef.current =
+        true;
+
+      setWalking(true);
+
+      try {
+        /*
+         * Android 앱 WebView
+         */
+        if (
+          typeof window.Android
+            ?.startStepSensor ===
+          "function"
+        ) {
+          setSensorMode(
+            "android",
+          );
+
+          window.Android
+            .startStepSensor();
+
+          return;
+        }
+
+        /*
+         * 일반 모바일 브라우저
+         */
+        if (
+          isMobileBrowser()
+        ) {
+          setSensorMode(
+            "browser",
+          );
+
+          await startBrowserSensor();
+
+          return;
+        }
+
+        throw new Error(
+          "PC 브라우저에서는 걸음 센서를 사용할 수 없습니다. 휴대폰에서 접속해주세요.",
+        );
+      } catch (error) {
+        console.error(
+          "산책 시작 오류",
+          error,
+        );
+
+        stopBrowserSensor();
+
+        walkingRef.current =
+          false;
+
+        setWalking(false);
+        setSensorMode("none");
+
+        setSensorError(
+          error instanceof Error
+            ? error.message
+            : "산책을 시작할 수 없습니다.",
+        );
       }
-
-      throw new Error(
-        "PC 브라우저에서는 걸음 센서를 사용할 수 없습니다. 휴대폰에서 접속해주세요.",
-      );
-    } catch (error) {
-      console.error(
-        "산책 시작 오류",
-        error,
-      );
-
-      stopBrowserSensor();
-
-      walkingRef.current = false;
-      setWalking(false);
-      setSensorMode("none");
-
-      setSensorError(
-        error instanceof Error
-          ? error.message
-          : "산책을 시작할 수 없습니다.",
-      );
-    }
-  };
+    };
 
   const pauseWalking = () => {
-    walkingRef.current = false;
+    walkingRef.current =
+      false;
+
     setWalking(false);
 
     if (
@@ -596,7 +894,7 @@ export default function WalkPage() {
         window.Android
           ?.stopStepSensor?.();
       } catch {
-        // 센서 정지 실패가 화면을 막지 않게 합니다.
+        // 센서 정지 실패가 화면을 막지 않습니다.
       }
     }
 
@@ -606,13 +904,18 @@ export default function WalkPage() {
       stopBrowserSensor();
     }
 
+    /*
+     * 이어 걷기를 시작할 때 현재 GameContext 걸음수부터
+     * 새 센서 구간을 시작합니다.
+     */
     segmentBaseSteps.current =
-      sessionSteps;
+      liveGameRef.current.todaySteps;
   };
 
   const toggleWalking = () => {
     if (walking) {
       pauseWalking();
+
       return;
     }
 
@@ -620,10 +923,12 @@ export default function WalkPage() {
   };
 
   /*
-   * 산책 종료 시 이번 산책 증가분만 저장합니다.
+   * 걸음은 이미 실시간으로 GameContext에 반영되므로
+   * 종료 시 addSteps를 다시 호출하지 않습니다.
    */
   const finish = () => {
-    walkingRef.current = false;
+    walkingRef.current =
+      false;
 
     stopBrowserSensor();
 
@@ -631,25 +936,15 @@ export default function WalkPage() {
       window.Android
         ?.stopStepSensor?.();
     } catch {
-      // 앱 브리지 미지원 환경에서도 정상 종료합니다.
+      // Android 브리지 미지원 환경에서도 정상 종료합니다.
     }
 
-    const addedSteps = Math.max(
-      0,
-      sessionSteps -
-        baseTodaySteps.current,
+    segmentBaseSteps.current =
+      liveGameRef.current.todaySteps;
+
+    setSessionSteps(
+      liveGameRef.current.todaySteps,
     );
-
-    if (addedSteps > 0) {
-      addSteps(addedSteps);
-
-      /*
-       * 종료 버튼을 다시 눌러도
-       * 같은 걸음이 중복 저장되지 않게 합니다.
-       */
-      baseTodaySteps.current =
-        sessionSteps;
-    }
 
     setWalking(false);
     setSensorMode("none");
@@ -657,15 +952,16 @@ export default function WalkPage() {
     setSensorError("");
   };
 
-  const statusText = walking
-    ? sensorMode === "android"
-      ? "앱 정밀 측정 중"
-      : sensorMode === "browser"
-        ? "모바일 간편 측정 중"
-        : "산책 중"
-    : seconds > 0
-      ? "산책 일시정지"
-      : "산책 준비";
+  const statusText =
+    walking
+      ? sensorMode === "android"
+        ? "앱 정밀 측정 중"
+        : sensorMode === "browser"
+          ? "모바일 간편 측정 중"
+          : "산책 중"
+      : seconds > 0
+        ? "산책 일시정지"
+        : "산책 준비";
 
   const modeGuide =
     sensorMode === "android"
@@ -676,8 +972,12 @@ export default function WalkPage() {
 
   return (
     <Guard>
-      <main className={styles.root}>
-        <section className={styles.phone}>
+      <main
+        className={styles.root}
+      >
+        <section
+          className={styles.phone}
+        >
           <section
             className={`${styles.stage} ${
               walking
@@ -691,15 +991,21 @@ export default function WalkPage() {
               fill
               priority
               sizes="(max-width: 640px) 100vw, 640px"
-              className={styles.background}
+              className={
+                styles.background
+              }
             />
 
             <div
-              className={styles.stageShade}
+              className={
+                styles.stageShade
+              }
             />
 
             <header
-              className={styles.header}
+              className={
+                styles.header
+              }
             >
               <div>
                 <span>
@@ -810,7 +1116,9 @@ export default function WalkPage() {
                 styles.stepBlock
               }
             >
-              <span>오늘의 걸음</span>
+              <span>
+                오늘의 걸음
+              </span>
 
               <div>
                 <strong>
@@ -845,7 +1153,9 @@ export default function WalkPage() {
                     {calories}
                   </strong>
 
-                  <small>kcal</small>
+                  <small>
+                    kcal
+                  </small>
                 </div>
               </article>
 
@@ -890,10 +1200,14 @@ export default function WalkPage() {
 
                 <div>
                   <strong>
-                    {timeText(seconds)}
+                    {timeText(
+                      seconds,
+                    )}
                   </strong>
 
-                  <small>시간</small>
+                  <small>
+                    시간
+                  </small>
                 </div>
               </article>
             </div>
@@ -935,7 +1249,9 @@ export default function WalkPage() {
                   ? styles.stopState
                   : ""
               }`}
-              onClick={toggleWalking}
+              onClick={
+                toggleWalking
+              }
               aria-label={
                 walking
                   ? "산책 일시정지"
@@ -947,7 +1263,9 @@ export default function WalkPage() {
                   styles.buttonIcon
                 }
               >
-                {walking ? "Ⅱ" : "👟"}
+                {walking
+                  ? "Ⅱ"
+                  : "👟"}
               </span>
 
               <span>
