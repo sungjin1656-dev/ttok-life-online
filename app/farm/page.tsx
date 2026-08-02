@@ -201,8 +201,67 @@ async function saveFarmState(
     );
   }
 
-  return result.farm_state;
+   return result.farm_state;
 }
+
+async function addInventoryReward(
+  memberId: string,
+  itemCode: string,
+  quantity = 1,
+): Promise<void> {
+  const response = await fetch(
+    "/api/inventory-state",
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
+
+      body: JSON.stringify({
+        member_id: memberId,
+        item_code: itemCode,
+        quantity,
+        action: "add",
+      }),
+
+      cache: "no-store",
+    },
+  );
+
+  const text =
+    await response.text();
+
+  let result: {
+    ok?: boolean;
+    message?: string;
+    detail?: string;
+  } = {};
+
+  try {
+    result = text
+      ? JSON.parse(text)
+      : {};
+  } catch {
+    throw new Error(
+      `보관함 저장 응답이 올바르지 않습니다. HTTP ${response.status}`,
+    );
+  }
+
+  if (
+    !response.ok ||
+    !result.ok
+  ) {
+    throw new Error(
+      result.detail ||
+        result.message ||
+        "보관함 저장에 실패했습니다.",
+    );
+  }
+}
+
+
 
 type FarmSound =
   | "water"
@@ -879,7 +938,7 @@ export default function FarmPage() {
     }, 2800);
   };
 
-  const harvestPlant = () => {
+  const harvestPlant = async () => {
     if (
       !farmSyncReady ||
       !ready
@@ -915,15 +974,32 @@ export default function FarmPage() {
       "";
 
     if (memberId) {
-      enqueueFarmSave(
-        memberId,
-        selectedCropId,
-        0,
-        crop.growthCount,
-      );
-    }
+  enqueueFarmSave(
+    memberId,
+    selectedCropId,
+    0,
+    crop.growthCount,
+  );
 
-    setShowPointReward(true);
+  try {
+    await addInventoryReward(
+      memberId,
+      "lucky_flower",
+      1,
+    );
+  } catch (error) {
+    console.error(
+      "[TTOK LIFE] 수확 보상 저장 실패:",
+      error,
+    );
+
+    window.alert(
+      "수확은 완료됐지만 보관함 저장에 실패했습니다. 잠시 후 다시 확인해주세요.",
+    );
+  }
+}
+
+setShowPointReward(true);
 
     window.setTimeout(() => {
       router.push("/exchange");
