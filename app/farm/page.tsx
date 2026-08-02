@@ -201,7 +201,7 @@ async function saveFarmState(
     );
   }
 
-   return result.farm_state;
+  return result.farm_state;
 }
 
 async function addInventoryReward(
@@ -260,8 +260,6 @@ async function addInventoryReward(
     );
   }
 }
-
-
 
 type FarmSound =
   | "water"
@@ -609,8 +607,8 @@ export default function FarmPage() {
         cropId: string,
         nextWaterings: number,
         growthCount: number,
-      ) => {
-        farmSaveQueueRef.current =
+      ): Promise<void> => {
+        const saveTask =
           farmSaveQueueRef.current
             .catch(() => undefined)
             .then(async () => {
@@ -645,21 +643,29 @@ export default function FarmPage() {
               );
 
               setFarmSyncError("");
-            })
-            .catch(
-              (error: unknown) => {
-                setFarmSyncError(
-                  error instanceof Error
-                    ? error.message
-                    : "농장 저장에 실패했습니다.",
-                );
+            });
 
-                console.error(
-                  "[TTOK LIFE] 농장 저장 실패:",
-                  error,
-                );
-              },
-            );
+        /*
+         * 저장 큐 자체는 다음 요청을 위해 항상 정상 상태로 유지하고,
+         * 호출한 쪽에는 실제 성공/실패 Promise를 반환합니다.
+         */
+        farmSaveQueueRef.current =
+          saveTask.catch(
+            (error: unknown) => {
+              setFarmSyncError(
+                error instanceof Error
+                  ? error.message
+                  : "농장 저장에 실패했습니다.",
+              );
+
+              console.error(
+                "[TTOK LIFE] 농장 저장 실패:",
+                error,
+              );
+            },
+          );
+
+        return saveTask;
       },
       [applyFarmToScreen],
     );
@@ -871,11 +877,23 @@ export default function FarmPage() {
       return;
     }
 
+    const memberId =
+      member?.memberId?.trim() ??
+      "";
+
+    if (!memberId) {
+      setFarmSyncError(
+        "회원 정보를 확인할 수 없습니다.",
+      );
+      return;
+    }
+
     playSound("water");
     vibrate(25);
 
     setIsWatering(true);
     setShowWaterEffect(true);
+    setFarmSyncError("");
 
     const nextWaterings = Math.min(
       crop.growthCount,
@@ -883,59 +901,65 @@ export default function FarmPage() {
     );
 
     window.setTimeout(() => {
-      playSound("grow");
-      vibrate([20, 30, 35]);
+      void (async () => {
+        try {
+          /*
+           * 서버 저장이 완료된 뒤 화면을 갱신합니다.
+           * 마지막 90% → 100% 구간에서 PC와 앱이
+           * 서로 다른 값을 보는 현상을 방지합니다.
+           */
+          await enqueueFarmSave(
+            memberId,
+            selectedCropId,
+            nextWaterings,
+            crop.growthCount,
+          );
 
-      setIsPlantPopping(true);
+          patchGame({
+            water:
+              game.water - cost,
+          });
 
-      applyFarmToScreen(
-        selectedCropId,
-        nextWaterings,
-      );
+          playSound("grow");
+          vibrate([20, 30, 35]);
 
-      patchGame({
-        water:
-          game.water - cost,
-      });
+          setIsPlantPopping(true);
 
-      const memberId =
-        member?.memberId?.trim() ??
-        "";
+          if (
+            nextWaterings >=
+            crop.growthCount
+          ) {
+            window.setTimeout(() => {
+              playSound("success");
+              vibrate([40, 50, 70]);
 
-      if (memberId) {
-        enqueueFarmSave(
-          memberId,
-          selectedCropId,
-          nextWaterings,
-          crop.growthCount,
-        );
-      }
+              setShowCompleteEffect(true);
+            }, 200);
 
-      if (
-        nextWaterings >=
-        crop.growthCount
-      ) {
-        window.setTimeout(() => {
-          playSound("success");
-          vibrate([40, 50, 70]);
+            window.setTimeout(() => {
+              setShowCompleteEffect(false);
+            }, 2300);
+          }
 
-          setShowCompleteEffect(true);
-        }, 200);
+          window.setTimeout(() => {
+            setIsPlantPopping(false);
+          }, 850);
+        } catch (error) {
+          setFarmSyncError(
+            error instanceof Error
+              ? error.message
+              : "농장 저장에 실패했습니다.",
+          );
 
-        window.setTimeout(() => {
-          setShowCompleteEffect(false);
-        }, 2300);
-      }
-
-      window.setTimeout(() => {
-        setIsPlantPopping(false);
-      }, 850);
+          window.alert(
+            "농장 저장에 실패했습니다. 물방울은 차감되지 않았습니다.",
+          );
+        } finally {
+          setShowWaterEffect(false);
+          setIsWatering(false);
+        }
+      })();
     }, 1800);
-
-    window.setTimeout(() => {
-      setShowWaterEffect(false);
-      setIsWatering(false);
-    }, 2800);
   };
 
   const harvestPlant = async () => {
@@ -974,32 +998,32 @@ export default function FarmPage() {
       "";
 
     if (memberId) {
-  enqueueFarmSave(
-    memberId,
-    selectedCropId,
-    0,
-    crop.growthCount,
-  );
+      try {
+        await enqueueFarmSave(
+          memberId,
+          selectedCropId,
+          0,
+          crop.growthCount,
+        );
 
-  try {
-    await addInventoryReward(
-      memberId,
-      "lucky_flower",
-      1,
-    );
-  } catch (error) {
-    console.error(
-      "[TTOK LIFE] 수확 보상 저장 실패:",
-      error,
-    );
+        await addInventoryReward(
+          memberId,
+          "lucky_flower",
+          1,
+        );
+      } catch (error) {
+        console.error(
+          "[TTOK LIFE] 수확 저장 실패:",
+          error,
+        );
 
-    window.alert(
-      "수확은 완료됐지만 보관함 저장에 실패했습니다. 잠시 후 다시 확인해주세요.",
-    );
-  }
-}
+        window.alert(
+          "수확 저장에 실패했습니다. 잠시 후 다시 확인해주세요.",
+        );
+      }
+    }
 
-setShowPointReward(true);
+    setShowPointReward(true);
 
     window.setTimeout(() => {
       router.push("/exchange");
