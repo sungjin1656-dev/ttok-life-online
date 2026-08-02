@@ -774,8 +774,6 @@ export default function FarmPage() {
     };
   }, [
     applyFarmToScreen,
-    game.currentCropId,
-    game.cropWaterings,
     member?.memberId,
   ]);
 
