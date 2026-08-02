@@ -310,11 +310,10 @@ function createApiPayload(
       0,
     ),
 
-    points: normalizeNumber(
-      game.points,
-      0,
-    ),
-
+    /*
+     * 현금성 포인트는 클라이언트 저장 요청에 포함하지 않습니다.
+     * 포인트 증감은 farm-harvest 등 서버 전용 API만 처리합니다.
+     */
     today_steps: normalizeNumber(
       game.todaySteps,
       0,
@@ -457,10 +456,6 @@ function isRemoteStateEmpty(
       0,
     ) === 0 &&
     normalizeNumber(
-      remote.points,
-      0,
-    ) === 0 &&
-    normalizeNumber(
       remote.today_steps,
       0,
     ) === 0 &&
@@ -506,10 +501,6 @@ function hasLocalProgress(
   return (
     normalizeNumber(
       game.water,
-      0,
-    ) > 0 ||
-    normalizeNumber(
-      game.points,
       0,
     ) > 0 ||
     normalizeNumber(
@@ -606,6 +597,11 @@ async function readRemoteGame(
   return result.game_state;
 }
 
+/*
+ * 일반 게임 상태 저장입니다.
+ * 현금성 points는 createApiPayload에서 제외되어
+ * 이 경로로는 서버 포인트를 변경할 수 없습니다.
+ */
 async function saveRemoteGame(
   memberId: string,
   game: GameState,
@@ -703,6 +699,11 @@ export function GameProvider({
 
   const localReadyRef =
     useRef(false);
+
+  const remoteRefreshPromiseRef =
+    useRef<Promise<void> | null>(
+      null,
+    );
 
   /*
    * Supabase 초기 조회 전 발생한 최신 변경사항입니다.
@@ -866,17 +867,23 @@ export function GameProvider({
         pendingSaveRef.current =
           null;
 
-        const latestGame =
+        const pendingSnapshot =
           cloneGameState(
             pendingGame ??
               fallbackGame,
           );
 
         /*
-         * 화면도 pending 최신값으로 유지합니다.
-         * 서버 조회값 때문에 사용자의 최신 걸음이
-         * 다시 0으로 돌아가는 것을 방지합니다.
+         * 초기 조회 중 발생한 걸음·물방울 변경은 유지하되,
+         * 현금성 포인트는 반드시 서버 값을 사용합니다.
          */
+        const latestGame: GameState = {
+          ...pendingSnapshot,
+
+          points:
+            fallbackGame.points,
+        };
+
         gameRef.current =
           latestGame;
 
@@ -925,6 +932,95 @@ export function GameProvider({
         }
       },
       [scheduleRemoteSave],
+    );
+
+  const refreshRemoteGame =
+    useCallback(
+      async () => {
+        const memberId =
+          activeMemberIdRef.current;
+
+        if (
+          !memberId ||
+          !remoteReadyRef.current
+        ) {
+          return;
+        }
+
+        if (
+          remoteRefreshPromiseRef.current
+        ) {
+          return remoteRefreshPromiseRef.current;
+        }
+
+        const refreshTask =
+          (async () => {
+            try {
+              const remoteState =
+                await readRemoteGame(
+                  memberId,
+                );
+
+              if (
+                activeMemberIdRef.current !==
+                memberId
+              ) {
+                return;
+              }
+
+              const current =
+                gameRef.current;
+
+              /*
+               * 저장 대기 중인 로컬 변경이 있으면 걸음 등은 유지하고,
+               * 현금성 포인트만 서버값으로 즉시 교정합니다.
+               * 대기 변경이 없으면 모든 서버 게임값을 적용합니다.
+               */
+              const nextGame =
+                pendingSaveRef.current
+                  ? {
+                      ...current,
+
+                      points:
+                        normalizeNumber(
+                          remoteState.points,
+                          current.points,
+                        ),
+                    }
+                  : applyApiState(
+                      current,
+                      remoteState,
+                    );
+
+              gameRef.current =
+                nextGame;
+
+              setGame(nextGame);
+              saveLocalGame(nextGame);
+            } catch (error) {
+              console.error(
+                "[TTOK LIFE] 서버 게임 상태 새로고침 실패:",
+                error,
+              );
+            }
+          })();
+
+        remoteRefreshPromiseRef.current =
+          refreshTask;
+
+        try {
+          await refreshTask;
+        } finally {
+          if (
+            remoteRefreshPromiseRef.current ===
+            refreshTask
+          ) {
+            remoteRefreshPromiseRef.current =
+              null;
+          }
+        }
+      },
+      [],
     );
 
   useEffect(() => {
@@ -1041,12 +1137,33 @@ export function GameProvider({
         }
 
         /*
-         * 초기 조회 중 변경사항이 없을 때만
-         * Supabase 데이터를 화면에 적용합니다.
+         * 초기 조회 중 로컬 변경이 있더라도 현금성 포인트는
+         * 서버값을 즉시 적용합니다.
          */
         if (
-          !pendingSaveRef.current
+          pendingSaveRef.current
         ) {
+          const pendingWithServerPoints: GameState = {
+            ...pendingSaveRef.current,
+
+            points:
+              nextGame.points,
+          };
+
+          pendingSaveRef.current =
+            pendingWithServerPoints;
+
+          gameRef.current =
+            pendingWithServerPoints;
+
+          setGame(
+            pendingWithServerPoints,
+          );
+
+          saveLocalGame(
+            pendingWithServerPoints,
+          );
+        } else {
           gameRef.current =
             nextGame;
 
@@ -1113,6 +1230,45 @@ export function GameProvider({
     clearSaveTimer,
     flushPendingSave,
   ]);
+
+  useEffect(() => {
+    const handleVisibilityChange =
+      () => {
+        if (
+          document.visibilityState ===
+          "visible"
+        ) {
+          void refreshRemoteGame();
+        }
+      };
+
+    const handleFocus =
+      () => {
+        void refreshRemoteGame();
+      };
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
+
+    window.addEventListener(
+      "focus",
+      handleFocus,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+
+      window.removeEventListener(
+        "focus",
+        handleFocus,
+      );
+    };
+  }, [refreshRemoteGame]);
 
   useEffect(() => {
     const flushLatestGame = () => {
@@ -1208,6 +1364,12 @@ export function GameProvider({
             ...patch,
           }),
         );
+
+        /*
+         * patch에 points가 포함돼도 화면 표시만 갱신됩니다.
+         * createApiPayload가 points를 전송하지 않으므로
+         * 클라이언트가 서버 포인트를 덮어쓸 수 없습니다.
+         */
       },
       [updateGame],
     );
