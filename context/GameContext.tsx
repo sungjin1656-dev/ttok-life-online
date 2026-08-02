@@ -71,7 +71,7 @@ const STORAGE_KEY =
   "ttok-life-farm-preview-v12";
 
 const MIGRATION_KEY_PREFIX =
-  "ttok-life-supabase-migrated-v2:";
+  "ttok-life-supabase-migrated-v3:";
 
 const REMOTE_SAVE_DELAY = 700;
 
@@ -125,13 +125,6 @@ function getLocalDateKey(
   return `${year}-${month}-${day}`;
 }
 
-/*
- * React GameState 내부에서는
- * lastAttendanceDate를 string으로 유지합니다.
- *
- * 날짜가 없으면 빈 문자열을 사용하고,
- * Supabase로 전송할 때만 null로 변환합니다.
- */
 function normalizeStoredDate(
   value: unknown,
 ): string {
@@ -193,6 +186,26 @@ function createInitialGameCopy(): GameState {
     )
       ? [...initialGameState.inviteHistory]
       : initialGameState.inviteHistory,
+  };
+}
+
+function cloneGameState(
+  game: GameState,
+): GameState {
+  return {
+    ...game,
+
+    rewards: Array.isArray(
+      game.rewards,
+    )
+      ? [...game.rewards]
+      : game.rewards,
+
+    inviteHistory: Array.isArray(
+      game.inviteHistory,
+    )
+      ? [...game.inviteHistory]
+      : game.inviteHistory,
   };
 }
 
@@ -666,60 +679,40 @@ export function GameProvider({
   const [ready, setReady] =
     useState(false);
 
-  /*
-   * React state와 별도로 현재 최신 게임값을
-   * 즉시 참조하기 위한 ref입니다.
-   */
   const gameRef =
     useRef<GameState>(
       initialGameState,
     );
 
-  /*
-   * 현재 Supabase와 연결된 회원 ID입니다.
-   */
   const activeMemberIdRef =
     useRef("");
 
-  /*
-   * 현재 회원의 최초 Supabase 조회 및 적용이
-   * 완료되었는지 나타냅니다.
-   */
   const remoteReadyRef =
     useRef(false);
 
-  /*
-   * 회원이 바뀌거나 다시 연결될 때
-   * 이전 비동기 요청 결과가 적용되는 것을 방지합니다.
-   */
   const syncSequenceRef =
     useRef(0);
 
-  /*
-   * 연속된 상태 변경을 하나의 저장 요청으로
-   * 합치기 위한 타이머입니다.
-   */
   const saveTimerRef =
     useRef<number | null>(null);
 
-  /*
-   * Supabase POST 요청이 순서대로 실행되도록
-   * 저장 요청을 직렬화합니다.
-   */
   const saveQueueRef =
     useRef<Promise<void>>(
       Promise.resolve(),
     );
 
-  /*
-   * 최초 localStorage 로딩 완료 여부입니다.
-   */
   const localReadyRef =
     useRef(false);
 
   /*
-   * 현재 예약된 Supabase 저장을 취소합니다.
+   * Supabase 초기 조회 전 발생한 최신 변경사항입니다.
+   *
+   * 이전 버전에서는 remoteReady가 false일 때
+   * 저장 요청이 사라졌지만, 이제 이 ref에 보관합니다.
    */
+  const pendingSaveRef =
+    useRef<GameState | null>(null);
+
   const clearSaveTimer =
     useCallback(() => {
       if (
@@ -735,26 +728,19 @@ export function GameProvider({
       saveTimerRef.current = null;
     }, []);
 
-  /*
-   * Supabase 저장 요청을 순서대로 실행합니다.
-   *
-   * 먼저 시작한 저장이 늦게 끝나서
-   * 최신 데이터를 덮어쓰는 문제를 방지합니다.
-   */
   const enqueueRemoteSave =
     useCallback(
       (
         memberId: string,
         snapshot: GameState,
       ) => {
+        const safeSnapshot =
+          cloneGameState(snapshot);
+
         saveQueueRef.current =
           saveQueueRef.current
             .catch(() => undefined)
             .then(async () => {
-              /*
-               * 저장 대기 중 회원이 바뀌었다면
-               * 이전 회원 데이터는 저장하지 않습니다.
-               */
               if (
                 activeMemberIdRef.current !==
                 memberId
@@ -764,11 +750,25 @@ export function GameProvider({
 
               await saveRemoteGame(
                 memberId,
-                snapshot,
+                safeSnapshot,
               );
             })
             .catch(
               (error: unknown) => {
+                /*
+                 * 저장 실패 시 최신 상태를 다시 대기시켜
+                 * 다음 변경이나 화면 이탈 시 재시도합니다.
+                 */
+                if (
+                  activeMemberIdRef.current ===
+                  memberId
+                ) {
+                  pendingSaveRef.current =
+                    cloneGameState(
+                      gameRef.current,
+                    );
+                }
+
                 console.error(
                   "[TTOK LIFE] Supabase 저장 실패:",
                   error,
@@ -779,10 +779,6 @@ export function GameProvider({
       [],
     );
 
-  /*
-   * 가장 최신 게임 상태를 일정 시간 뒤
-   * Supabase에 저장하도록 예약합니다.
-   */
   const scheduleRemoteSave =
     useCallback(
       (
@@ -792,18 +788,28 @@ export function GameProvider({
         const memberId =
           activeMemberIdRef.current;
 
+        const snapshot =
+          cloneGameState(nextGame);
+
+        /*
+         * 아직 회원 ID가 전달되지 않았거나
+         * Supabase 최초 조회가 끝나지 않았다면
+         * 최신 데이터를 pending에 보관합니다.
+         */
         if (
           !memberId ||
           !remoteReadyRef.current
         ) {
+          pendingSaveRef.current =
+            snapshot;
+
           return;
         }
 
-        clearSaveTimer();
+        pendingSaveRef.current =
+          null;
 
-        const snapshot = {
-          ...nextGame,
-        };
+        clearSaveTimer();
 
         if (immediate) {
           enqueueRemoteSave(
@@ -832,13 +838,59 @@ export function GameProvider({
     );
 
   /*
-   * 모든 게임 상태 변경은 이 함수 하나를 통합니다.
-   *
-   * 1. gameRef 즉시 변경
-   * 2. React state 변경
-   * 3. localStorage 캐시 저장
-   * 4. Supabase 저장 예약
+   * Supabase 준비 완료 후 pending 상태를 즉시 저장합니다.
    */
+  const flushPendingSave =
+    useCallback(
+      (
+        memberId: string,
+        fallbackGame: GameState,
+      ) => {
+        if (
+          activeMemberIdRef.current !==
+          memberId
+        ) {
+          return;
+        }
+
+        remoteReadyRef.current =
+          true;
+
+        const pendingGame =
+          pendingSaveRef.current;
+
+        if (!pendingGame) {
+          return;
+        }
+
+        pendingSaveRef.current =
+          null;
+
+        const latestGame =
+          cloneGameState(
+            pendingGame ??
+              fallbackGame,
+          );
+
+        /*
+         * 화면도 pending 최신값으로 유지합니다.
+         * 서버 조회값 때문에 사용자의 최신 걸음이
+         * 다시 0으로 돌아가는 것을 방지합니다.
+         */
+        gameRef.current =
+          latestGame;
+
+        setGame(latestGame);
+        saveLocalGame(latestGame);
+
+        enqueueRemoteSave(
+          memberId,
+          latestGame,
+        );
+      },
+      [enqueueRemoteSave],
+    );
+
   const updateGame =
     useCallback(
       (
@@ -855,24 +907,26 @@ export function GameProvider({
           return;
         }
 
-        gameRef.current = next;
+        gameRef.current =
+          next;
 
         setGame(next);
 
-        if (localReadyRef.current) {
+        if (
+          localReadyRef.current
+        ) {
           saveLocalGame(next);
         }
 
         if (persist) {
-          scheduleRemoteSave(next);
+          scheduleRemoteSave(
+            next,
+          );
         }
       },
       [scheduleRemoteSave],
     );
 
-  /*
-   * localStorage 캐시를 최초 1회 불러옵니다.
-   */
   useEffect(() => {
     const localGame =
       loadLocalGame();
@@ -887,10 +941,6 @@ export function GameProvider({
     setReady(true);
   }, []);
 
-  /*
-   * Cafe24/Flex 회원이 연결되면
-   * 해당 회원의 Supabase 상태를 불러옵니다.
-   */
   useEffect(() => {
     if (
       !ready ||
@@ -906,10 +956,6 @@ export function GameProvider({
       return;
     }
 
-    /*
-     * 같은 회원이 이미 완전히 연결된 상태라면
-     * 다시 초기화하지 않습니다.
-     */
     if (
       activeMemberIdRef.current ===
         memberId &&
@@ -951,7 +997,7 @@ export function GameProvider({
           return;
         }
 
-        const localGame =
+        const currentLocalGame =
           gameRef.current;
 
         const shouldMigrate =
@@ -960,20 +1006,16 @@ export function GameProvider({
             remoteState,
           ) &&
           hasLocalProgress(
-            localGame,
+            currentLocalGame,
           );
 
         let nextGame: GameState;
 
         if (shouldMigrate) {
-          /*
-           * 최초 회원 연결이며 서버 데이터가 비어 있다면
-           * 기존 모바일웹 localStorage 값을 살립니다.
-           */
           const migratedRemoteState =
             await saveRemoteGame(
               memberId,
-              localGame,
+              currentLocalGame,
             );
 
           if (
@@ -987,29 +1029,30 @@ export function GameProvider({
 
           nextGame =
             applyApiState(
-              localGame,
+              currentLocalGame,
               migratedRemoteState,
             );
         } else {
-          /*
-           * 이미 서버 데이터가 있으면
-           * Supabase 값을 최종 원본으로 사용합니다.
-           *
-           * 닉네임, 보상함 등 game_state에 없는 값은
-           * 현재 로컬 값을 유지합니다.
-           */
           nextGame =
             applyApiState(
-              localGame,
+              currentLocalGame,
               remoteState,
             );
         }
 
-        gameRef.current =
-          nextGame;
+        /*
+         * 초기 조회 중 변경사항이 없을 때만
+         * Supabase 데이터를 화면에 적용합니다.
+         */
+        if (
+          !pendingSaveRef.current
+        ) {
+          gameRef.current =
+            nextGame;
 
-        setGame(nextGame);
-        saveLocalGame(nextGame);
+          setGame(nextGame);
+          saveLocalGame(nextGame);
+        }
 
         window.localStorage.setItem(
           migrationKey,
@@ -1018,6 +1061,15 @@ export function GameProvider({
 
         remoteReadyRef.current =
           true;
+
+        /*
+         * 초기 조회 중 걸음이나 게임값이 변경됐다면
+         * 해당 최신 상태를 즉시 Supabase에 저장합니다.
+         */
+        flushPendingSave(
+          memberId,
+          nextGame,
+        );
       })
       .catch(
         (error: unknown) => {
@@ -1031,6 +1083,15 @@ export function GameProvider({
           remoteReadyRef.current =
             false;
 
+          /*
+           * 조회 실패 시에도 최신 로컬 상태를
+           * pending에 유지합니다.
+           */
+          pendingSaveRef.current =
+            cloneGameState(
+              gameRef.current,
+            );
+
           console.error(
             "[TTOK LIFE] Supabase 초기 동기화 실패:",
             error,
@@ -1039,10 +1100,6 @@ export function GameProvider({
       );
 
     return () => {
-      /*
-       * 회원 ID가 바뀌거나 Provider가 해제되면
-       * 이전 동기화 요청을 무효화합니다.
-       */
       if (
         syncSequenceRef.current ===
         syncSequence
@@ -1054,29 +1111,47 @@ export function GameProvider({
     ready,
     member?.memberId,
     clearSaveTimer,
+    flushPendingSave,
   ]);
 
-  /*
-   * 브라우저가 닫히거나 백그라운드로 이동할 때
-   * 마지막 최신 상태 저장을 한 번 더 요청합니다.
-   */
   useEffect(() => {
     const flushLatestGame = () => {
       const memberId =
         activeMemberIdRef.current;
 
-      if (
-        !memberId ||
-        !remoteReadyRef.current
-      ) {
-        return;
-      }
+      const latestGame =
+        cloneGameState(
+          gameRef.current,
+        );
+
+      saveLocalGame(
+        latestGame,
+      );
 
       clearSaveTimer();
 
+      if (!memberId) {
+        pendingSaveRef.current =
+          latestGame;
+
+        return;
+      }
+
+      if (
+        !remoteReadyRef.current
+      ) {
+        pendingSaveRef.current =
+          latestGame;
+
+        return;
+      }
+
+      pendingSaveRef.current =
+        null;
+
       enqueueRemoteSave(
         memberId,
-        gameRef.current,
+        latestGame,
       );
     };
 
@@ -1116,9 +1191,6 @@ export function GameProvider({
     enqueueRemoteSave,
   ]);
 
-  /*
-   * Provider 해제 시 저장 타이머를 정리합니다.
-   */
   useEffect(() => {
     return () => {
       clearSaveTimer();
@@ -1180,6 +1252,25 @@ export function GameProvider({
               0,
             );
 
+          const previousWaterUnits =
+            Math.floor(
+              current.todaySteps /
+                100,
+            );
+
+          const nextWaterUnits =
+            Math.floor(
+              nextTodaySteps /
+                100,
+            );
+
+          const earnedWater =
+            Math.max(
+              0,
+              nextWaterUnits -
+                previousWaterUnits,
+            );
+
           const nextFields = {
             todaySteps:
               nextTodaySteps,
@@ -1192,21 +1283,19 @@ export function GameProvider({
               currentTotalSteps +
               normalizedSteps,
 
-            calories: Math.round(
-              nextTodaySteps * 0.04,
-            ),
+            calories:
+              Math.round(
+                nextTodaySteps *
+                  0.04,
+              ),
 
             water:
               current.water +
-              Math.floor(
-                normalizedSteps / 100,
-              ),
+              earnedWater,
 
             exp:
               current.exp +
-              Math.floor(
-                normalizedSteps / 100,
-              ),
+              earnedWater,
           } as Partial<GameState>;
 
           return {
@@ -1240,7 +1329,9 @@ export function GameProvider({
 
           let bonusPercent = 0;
 
-          if (current.level === 2) {
+          if (
+            current.level === 2
+          ) {
             bonusPercent = 10;
           } else if (
             current.level === 3
@@ -1257,7 +1348,8 @@ export function GameProvider({
               baseWater *
                 (
                   1 +
-                  bonusPercent / 100
+                  bonusPercent /
+                    100
                 ),
             );
 
@@ -1288,12 +1380,15 @@ export function GameProvider({
             current.lastAttendanceDate,
           );
 
-        if (savedDate === today) {
+        if (
+          savedDate === today
+        ) {
           return current;
         }
 
         const nextAttendanceCount =
-          current.attendanceCount + 1;
+          current.attendanceCount +
+          1;
 
         const reward =
           attendanceRewards[
@@ -1321,7 +1416,8 @@ export function GameProvider({
     useCallback(() => {
       updateGame((current) => {
         const nextCount =
-          current.invitedCount + 1;
+          current.invitedCount +
+          1;
 
         const reward =
           inviteRewards[
@@ -1344,7 +1440,9 @@ export function GameProvider({
   const completeInviteReward =
     useCallback(() => {
       updateGame((current) => {
-        if (!current.invitedBy) {
+        if (
+          !current.invitedBy
+        ) {
           return current;
         }
 
@@ -1364,14 +1462,16 @@ export function GameProvider({
           ...current,
 
           water:
-            current.water + 500,
+            current.water +
+            500,
 
           invitedResidents:
             current.invitedResidents +
             1,
 
           invitedCount:
-            current.invitedCount + 1,
+            current.invitedCount +
+            1,
 
           inviteHistory: [
             ...(
@@ -1393,10 +1493,6 @@ export function GameProvider({
         STORAGE_KEY,
       );
 
-      /*
-       * resetGame도 회원의 Supabase 데이터에
-       * 동일하게 반영합니다.
-       */
       gameRef.current =
         resetState;
 
