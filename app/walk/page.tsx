@@ -25,6 +25,9 @@ const APP_INSTALL_URL =
 const WEB_NOTICE_STORAGE_KEY =
   "ttok_walk_web_notice_seen";
 
+const ANDROID_PERMISSION_GUIDE_KEY =
+  "ttok_walk_android_permission_guide_seen";
+
 type SensorMode =
   | "none"
   | "android"
@@ -178,6 +181,11 @@ export default function WalkPage() {
   const [
     showInstallModal,
     setShowInstallModal,
+  ] = useState(false);
+
+  const [
+    showPermissionGuide,
+    setShowPermissionGuide,
   ] = useState(false);
 
   const timerRef =
@@ -981,10 +989,33 @@ export default function WalkPage() {
   };
 
   /*
+   * Android 앱 권한 안내를 확인한 뒤 산책을 시작합니다.
+   *
+   * 안내창은 기기별로 최초 1회만 표시합니다.
+   */
+  const confirmAndroidPermissionGuide =
+    () => {
+      try {
+        localStorage.setItem(
+          ANDROID_PERMISSION_GUIDE_KEY,
+          "true",
+        );
+      } catch {
+        // 저장소 사용이 제한돼도 산책은 정상적으로 시작합니다.
+      }
+
+      setShowPermissionGuide(
+        false,
+      );
+
+      void startWalking();
+    };
+
+  /*
    * 산책 버튼 처리
    *
    * Android 앱:
-   * 곧바로 센서를 시작합니다.
+   * 최초 1회 권한 안내를 표시한 뒤 센서를 시작합니다.
    *
    * 일반 모바일웹:
    * 브라우저 세션당 최초 1회
@@ -1001,6 +1032,25 @@ export default function WalkPage() {
       if (
         isAndroidApp === true
       ) {
+        let guideSeen = false;
+
+        try {
+          guideSeen =
+            localStorage.getItem(
+              ANDROID_PERMISSION_GUIDE_KEY,
+            ) === "true";
+        } catch {
+          guideSeen = false;
+        }
+
+        if (!guideSeen) {
+          setShowPermissionGuide(
+            true,
+          );
+
+          return;
+        }
+
         void startWalking();
 
         return;
@@ -1465,6 +1515,127 @@ export default function WalkPage() {
 
           <BottomNav />
         </section>
+
+        {showPermissionGuide && (
+          <div
+            className={
+              styles.installModalBackdrop
+            }
+            role="presentation"
+          >
+            <section
+              className={
+                styles.installModal
+              }
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="walk-permission-title"
+            >
+              <div
+                className={
+                  styles.installModalIcon
+                }
+                aria-hidden="true"
+              >
+                🚶
+              </div>
+
+              <span>
+                TTOK LIFE WALK
+              </span>
+
+              <h2 id="walk-permission-title">
+                정확한 걸음 측정을 위해
+                <br />
+                권한이 필요해요
+              </h2>
+
+              <p>
+                산책 중 걸음 수를 정확하게 기록하고,
+                화면을 끄거나 다른 앱을 사용해도 측정을
+                계속하기 위해 아래 권한을 사용합니다.
+              </p>
+
+              <div
+                className={
+                  styles.installBenefits
+                }
+              >
+                <div>
+                  <b
+                    aria-hidden="true"
+                  >
+                    ✓
+                  </b>
+
+                  <span>
+                    <strong>
+                      신체 활동
+                    </strong>
+                    <br />
+                    휴대폰의 걸음 센서로 걷기와 달리기를
+                    측정합니다.
+                  </span>
+                </div>
+
+                <div>
+                  <b
+                    aria-hidden="true"
+                  >
+                    ✓
+                  </b>
+
+                  <span>
+                    <strong>
+                      알림
+                    </strong>
+                    <br />
+                    화면을 꺼도 걸음 측정이 계속되고 있음을
+                    알려드립니다.
+                  </span>
+                </div>
+
+                <div>
+                  <b
+                    aria-hidden="true"
+                  >
+                    ✓
+                  </b>
+
+                  <span>
+                    권한은 걸음 측정 기능에만 사용됩니다.
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className={
+                  styles.installPrimaryButton
+                }
+                onClick={
+                  confirmAndroidPermissionGuide
+                }
+              >
+                권한 허용하고 산책 시작하기
+              </button>
+
+              <button
+                type="button"
+                className={
+                  styles.installSecondaryButton
+                }
+                onClick={() =>
+                  setShowPermissionGuide(
+                    false,
+                  )
+                }
+              >
+                다음에 하기
+              </button>
+            </section>
+          </div>
+        )}
 
         {showInstallModal && (
           <div
