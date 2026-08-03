@@ -72,6 +72,9 @@ const GameContext =
 const STORAGE_KEY =
   "ttok-life-farm-preview-v12";
 
+const DAILY_RESET_DATE_KEY =
+  "ttok-life-daily-reset-date-v1";
+
 const MIGRATION_KEY_PREFIX =
   "ttok-life-supabase-migrated-v3:";
 
@@ -758,6 +761,13 @@ export function GameProvider({
   const localReadyRef =
     useRef(false);
 
+  /*
+   * 오늘 걸음 초기화 기준 날짜입니다.
+   * 브라우저·앱의 현지 날짜를 YYYY-MM-DD 형식으로 저장합니다.
+   */
+  const dailyResetDateRef =
+    useRef("");
+
   const remoteRefreshPromiseRef =
     useRef<Promise<void> | null>(
       null,
@@ -995,6 +1005,67 @@ export function GameProvider({
       [scheduleRemoteSave],
     );
 
+  /**
+   * 날짜가 바뀌었으면 오늘 걸음과 칼로리만 초기화합니다.
+   *
+   * 유지되는 값:
+   * - weeklySteps
+   * - totalSteps
+   * - water
+   * - exp
+   * - points
+   * - 구매·출석·초대 데이터
+   *
+   * 반환값이 true이면 실제로 날짜 초기화가 실행된 것입니다.
+   */
+  const ensureDailyReset =
+    useCallback((): boolean => {
+      const today =
+        getLocalDateKey();
+
+      if (
+        dailyResetDateRef.current ===
+        today
+      ) {
+        return false;
+      }
+
+      dailyResetDateRef.current =
+        today;
+
+      try {
+        window.localStorage.setItem(
+          DAILY_RESET_DATE_KEY,
+          today,
+        );
+      } catch (error) {
+        console.error(
+          "[TTOK LIFE] 일일 초기화 날짜 저장 실패:",
+          error,
+        );
+      }
+
+      updateGame(
+        (current) => {
+          if (
+            current.todaySteps === 0 &&
+            current.calories === 0
+          ) {
+            return current;
+          }
+
+          return {
+            ...current,
+
+            todaySteps: 0,
+            calories: 0,
+          };
+        },
+      );
+
+      return true;
+    }, [updateGame]);
+
   const refreshRemoteGame =
     useCallback(
       async () => {
@@ -1091,16 +1162,80 @@ export function GameProvider({
     );
 
   useEffect(() => {
+    const today =
+      getLocalDateKey();
+
+    let storedDailyDate = "";
+
+    try {
+      storedDailyDate =
+        window.localStorage.getItem(
+          DAILY_RESET_DATE_KEY,
+        ) ?? "";
+    } catch {
+      storedDailyDate = "";
+    }
+
+    dailyResetDateRef.current =
+      storedDailyDate;
+
     const localGame =
       loadLocalGame();
 
+    const dateChanged =
+      storedDailyDate !== today;
+
+    const normalizedLocalGame =
+      dateChanged
+        ? {
+            ...localGame,
+
+            todaySteps: 0,
+            calories: 0,
+          }
+        : localGame;
+
+    if (dateChanged) {
+      dailyResetDateRef.current =
+        today;
+
+      try {
+        window.localStorage.setItem(
+          DAILY_RESET_DATE_KEY,
+          today,
+        );
+      } catch (error) {
+        console.error(
+          "[TTOK LIFE] 일일 초기화 날짜 저장 실패:",
+          error,
+        );
+      }
+
+      /*
+       * 서버 최초 조회 전에 날짜가 바뀌었다면
+       * 0으로 초기화된 최신 상태를 pending에 보관합니다.
+       * 이후 Supabase 조회가 끝나면 서버에도 저장됩니다.
+       */
+      pendingSaveRef.current =
+        cloneGameState(
+          normalizedLocalGame,
+        );
+    }
+
     gameRef.current =
-      localGame;
+      normalizedLocalGame;
 
     localReadyRef.current =
       true;
 
-    setGame(localGame);
+    setGame(
+      normalizedLocalGame,
+    );
+
+    saveLocalGame(
+      normalizedLocalGame,
+    );
+
     setReady(true);
   }, []);
 
@@ -1308,13 +1443,28 @@ export function GameProvider({
           document.visibilityState ===
           "visible"
         ) {
-          void refreshRemoteGame();
+          const resetPerformed =
+            ensureDailyReset();
+
+          /*
+           * 방금 날짜 초기화를 실행한 경우에는
+           * 이전 날짜의 서버 todaySteps가 다시 덮어쓰지 않도록
+           * 이번 한 번의 원격 새로고침은 건너뜁니다.
+           */
+          if (!resetPerformed) {
+            void refreshRemoteGame();
+          }
         }
       };
 
     const handleFocus =
       () => {
-        void refreshRemoteGame();
+        const resetPerformed =
+          ensureDailyReset();
+
+        if (!resetPerformed) {
+          void refreshRemoteGame();
+        }
       };
 
     document.addEventListener(
@@ -1338,7 +1488,36 @@ export function GameProvider({
         handleFocus,
       );
     };
-  }, [refreshRemoteGame]);
+  }, [
+    ensureDailyReset,
+    refreshRemoteGame,
+  ]);
+
+  /*
+   * 앱을 계속 켜둔 상태에서 자정이 지나도
+   * 최대 1분 안에 오늘 걸음과 칼로리를 초기화합니다.
+   */
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
+    ensureDailyReset();
+
+    const intervalId =
+      window.setInterval(() => {
+        ensureDailyReset();
+      }, 60_000);
+
+    return () => {
+      window.clearInterval(
+        intervalId,
+      );
+    };
+  }, [
+    ready,
+    ensureDailyReset,
+  ]);
 
   useEffect(() => {
     const flushLatestGame = () => {
