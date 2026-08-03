@@ -746,28 +746,31 @@ export default function WalkPage() {
         0;
 
       /*
-       * 모바일웹 V4 완화형
+       * 모바일웹 V5 균형 조정형
        *
-       * 기기마다 DeviceMotionEvent 강도가 크게 달라서
-       * 강한 리듬 검증 대신 다음 기준만 적용합니다.
+       * V4에서 다리 떨기와 작은 반복 진동까지 쉽게 인식된 문제를 줄입니다.
        *
-       * - 처음 3회 움직임은 보류
-       * - 3회가 4초 안에 들어오면 3걸음 인정
-       * - 이후 180ms 이상 간격의 움직임은 1걸음 인정
-       * - 2초 이상 멈추면 다시 처음 3회부터 확인
-       * - 매우 강한 충격만 제외
+       * - 처음 4회 움직임을 보류
+       * - 움직임 간격과 리듬을 확인
+       * - 실제 걷기·달리기는 계속 반영
+       * - 작은 진동과 지나치게 빠른 떨림은 제외
+       * - 2초 이상 멈추면 다시 4회 검증
        */
-      const MIN_SEQUENCE_STEPS = 3;
+      const MIN_SEQUENCE_STEPS = 4;
       const SEQUENCE_WINDOW_MS =
-        4_000;
+        5_500;
       const MIN_STEP_INTERVAL_MS =
-        180;
+        240;
+      const MAX_STEP_INTERVAL_MS =
+        1_450;
+      const MAX_RHYTHM_SPREAD_MS =
+        520;
       const SEQUENCE_RESET_MS =
         2_000;
       const MIN_STEP_STRENGTH =
-        0.22;
+        0.48;
       const MAX_STEP_STRENGTH =
-        18;
+        12;
 
       const resetSequence =
         () => {
@@ -793,6 +796,53 @@ export default function WalkPage() {
           applyLiveTodaySteps(
             liveGameRef.current
               .todaySteps + count,
+          );
+        };
+
+      const hasValidRhythm =
+        () => {
+          const intervals =
+            browserPendingIntervals.current
+              .slice(
+                -(
+                  MIN_SEQUENCE_STEPS -
+                  1
+                ),
+              );
+
+          if (
+            intervals.length <
+            MIN_SEQUENCE_STEPS - 1
+          ) {
+            return false;
+          }
+
+          const allInRange =
+            intervals.every(
+              (interval) =>
+                interval >=
+                  MIN_STEP_INTERVAL_MS &&
+                interval <=
+                  MAX_STEP_INTERVAL_MS,
+            );
+
+          if (!allInRange) {
+            return false;
+          }
+
+          const minimum =
+            Math.min(
+              ...intervals,
+            );
+
+          const maximum =
+            Math.max(
+              ...intervals,
+            );
+
+          return (
+            maximum - minimum <=
+            MAX_RHYTHM_SPREAD_MS
           );
         };
 
@@ -852,8 +902,8 @@ export default function WalkPage() {
 
           browserGravity.current =
             browserGravity.current *
-              0.96 +
-            magnitude * 0.04;
+              0.94 +
+            magnitude * 0.06;
 
           motionStrength =
             Math.abs(
@@ -900,6 +950,14 @@ export default function WalkPage() {
           resetSequence();
         }
 
+        if (
+          previousStepTime > 0 &&
+          interval >
+            MAX_STEP_INTERVAL_MS
+        ) {
+          resetSequence();
+        }
+
         browserLastStepTime.current =
           now;
 
@@ -921,6 +979,13 @@ export default function WalkPage() {
         ) {
           browserPendingStartedAt.current =
             now;
+        } else if (interval > 0) {
+          browserPendingIntervals.current =
+            [
+              ...browserPendingIntervals
+                .current,
+              interval,
+            ].slice(-5);
         }
 
         browserPendingSteps.current +=
@@ -934,7 +999,8 @@ export default function WalkPage() {
           browserPendingSteps.current >=
             MIN_SEQUENCE_STEPS &&
           pendingElapsed <=
-            SEQUENCE_WINDOW_MS
+            SEQUENCE_WINDOW_MS &&
+          hasValidRhythm()
         ) {
           const confirmedSteps =
             browserPendingSteps.current;
@@ -944,6 +1010,9 @@ export default function WalkPage() {
 
           browserPendingStartedAt.current =
             0;
+
+          browserPendingIntervals.current =
+            [];
 
           browserWalkingSequenceActive.current =
             true;
@@ -1318,7 +1387,7 @@ export default function WalkPage() {
     sensorMode === "android"
       ? "앱 걸음 센서로 실시간 측정 중입니다."
       : sensorMode === "browser"
-        ? "모바일웹은 처음 3회의 움직임을 확인한 뒤 기록합니다. 걷기·달리기와 규칙적인 흔들림이 이전보다 쉽게 반영됩니다."
+        ? "모바일웹은 처음 4회의 움직임과 보행 리듬을 확인한 뒤 기록합니다. 작은 떨림은 줄이고 실제 걷기와 달리기를 우선합니다."
         : "";
 
   return (
