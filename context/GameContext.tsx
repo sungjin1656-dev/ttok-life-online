@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import {
+  type CharacterId,
   type GameState,
   initialGameState,
 } from "@/lib/game";
@@ -35,6 +36,7 @@ type GameContextValue = {
 
 type GameStateApiRow = {
   member_id: string;
+  character_id: CharacterId;
   water: number;
   points: number;
   today_steps: number;
@@ -74,6 +76,32 @@ const MIGRATION_KEY_PREFIX =
   "ttok-life-supabase-migrated-v3:";
 
 const REMOTE_SAVE_DELAY = 700;
+
+const CHARACTER_IDS =
+  new Set<CharacterId>([
+    "hani",
+    "harin",
+    "hajun",
+    "minjun",
+  ]);
+
+function normalizeCharacterId(
+  value: unknown,
+  fallback: CharacterId,
+): CharacterId {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized =
+    value.trim().toLowerCase();
+
+  return CHARACTER_IDS.has(
+    normalized as CharacterId,
+  )
+    ? (normalized as CharacterId)
+    : fallback;
+}
 
 function normalizeNumber(
   value: unknown,
@@ -175,6 +203,12 @@ function createInitialGameCopy(): GameState {
   return {
     ...initialGameState,
 
+    characterId:
+      normalizeCharacterId(
+        initialGameState.characterId,
+        "hani",
+      ),
+
     rewards: Array.isArray(
       initialGameState.rewards,
     )
@@ -194,6 +228,12 @@ function cloneGameState(
 ): GameState {
   return {
     ...game,
+
+    characterId:
+      normalizeCharacterId(
+        game.characterId,
+        "hani",
+      ),
 
     rewards: Array.isArray(
       game.rewards,
@@ -228,6 +268,12 @@ function loadLocalGame(): GameState {
     return {
       ...createInitialGameCopy(),
       ...parsed,
+
+      characterId:
+        normalizeCharacterId(
+          parsed.characterId,
+          initialGameState.characterId,
+        ),
 
       points:
         typeof parsed.points === "number"
@@ -305,6 +351,12 @@ function createApiPayload(
   return {
     member_id: memberId,
 
+    character_id:
+      normalizeCharacterId(
+        game.characterId,
+        initialGameState.characterId,
+      ),
+
     water: normalizeNumber(
       game.water,
       0,
@@ -373,6 +425,12 @@ function applyApiState(
   remote: GameStateApiRow,
 ): GameState {
   const remoteFields = {
+    characterId:
+      normalizeCharacterId(
+        remote.character_id,
+        current.characterId,
+      ),
+
     water: normalizeNumber(
       remote.water,
       current.water,
@@ -882,6 +940,9 @@ export function GameProvider({
 
           points:
             fallbackGame.points,
+
+          characterId:
+            fallbackGame.characterId,
         };
 
         gameRef.current =
@@ -985,6 +1046,12 @@ export function GameProvider({
                         normalizeNumber(
                           remoteState.points,
                           current.points,
+                        ),
+
+                      characterId:
+                        normalizeCharacterId(
+                          remoteState.character_id,
+                          current.characterId,
                         ),
                     }
                   : applyApiState(
@@ -1143,25 +1210,28 @@ export function GameProvider({
         if (
           pendingSaveRef.current
         ) {
-          const pendingWithServerPoints: GameState = {
+          const pendingWithServerFields: GameState = {
             ...pendingSaveRef.current,
 
             points:
               nextGame.points,
+
+            characterId:
+              nextGame.characterId,
           };
 
           pendingSaveRef.current =
-            pendingWithServerPoints;
+            pendingWithServerFields;
 
           gameRef.current =
-            pendingWithServerPoints;
+            pendingWithServerFields;
 
           setGame(
-            pendingWithServerPoints,
+            pendingWithServerFields,
           );
 
           saveLocalGame(
-            pendingWithServerPoints,
+            pendingWithServerFields,
           );
         } else {
           gameRef.current =
@@ -1362,6 +1432,14 @@ export function GameProvider({
           (current) => ({
             ...current,
             ...patch,
+
+            characterId:
+              patch.characterId === undefined
+                ? current.characterId
+                : normalizeCharacterId(
+                    patch.characterId,
+                    current.characterId,
+                  ),
           }),
         );
 

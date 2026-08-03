@@ -6,8 +6,15 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+type CharacterId =
+  | "hani"
+  | "harin"
+  | "hajun"
+  | "minjun";
+
 type GameStateRow = {
   member_id: string;
+  character_id: CharacterId;
   water: number;
   points: number;
   today_steps: number;
@@ -27,6 +34,7 @@ type GameStateRow = {
 
 type SaveGameStateBody = {
   member_id?: unknown;
+  character_id?: unknown;
   water?: unknown;
   points?: unknown;
   today_steps?: unknown;
@@ -46,6 +54,17 @@ type SupabaseConfig = {
   url: string;
   secretKey: string;
 };
+
+const DEFAULT_CHARACTER_ID: CharacterId =
+  "hani";
+
+const CHARACTER_IDS =
+  new Set<CharacterId>([
+    "hani",
+    "harin",
+    "hajun",
+    "minjun",
+  ]);
 
 function getSupabaseConfig(): SupabaseConfig | null {
   const rawUrl =
@@ -103,6 +122,24 @@ function validMemberId(
   return /^[A-Za-z0-9_:\-.@]{2,160}$/.test(
     value,
   );
+}
+
+function normalizeCharacterId(
+  value: unknown,
+  fallback: CharacterId,
+): CharacterId {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized =
+    value.trim().toLowerCase();
+
+  return CHARACTER_IDS.has(
+    normalized as CharacterId,
+  )
+    ? (normalized as CharacterId)
+    : fallback;
 }
 
 function normalizeInteger(
@@ -170,6 +207,8 @@ async function ensureGameState(
 
         body: JSON.stringify({
           member_id: memberId,
+          character_id:
+            DEFAULT_CHARACTER_ID,
         }),
 
         cache: "no-store",
@@ -517,6 +556,15 @@ export async function POST(
 
     const payload: GameStateRow = {
       member_id: memberId,
+
+      character_id:
+        normalizeCharacterId(
+          body.character_id,
+          normalizeCharacterId(
+            current.character_id,
+            DEFAULT_CHARACTER_ID,
+          ),
+        ),
 
       water: normalizeInteger(
         body.water,
