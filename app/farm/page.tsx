@@ -341,22 +341,27 @@ function getPotImage(stage: number) {
 }
 
 function characterAsset(
-  characterId: string,
+  characterId: unknown,
   isWatering: boolean,
-) {
+): string {
+  const safeCharacterId =
+    typeof characterId === "string"
+      ? characterId.trim().toLowerCase()
+      : "hani";
+
   const isBoy =
-    characterId === "hajun" ||
-    characterId === "minjun";
+    safeCharacterId === "hajun" ||
+    safeCharacterId === "minjun";
 
   if (isBoy) {
     return isWatering
-      ? "/assets/characters/boy-farm-watering.png"
-      : "/assets/characters/boy-farm-standing.png";
+      ? "/assets/characters/hajun_watering.png"
+      : "/assets/characters/hajun_idle.png";
   }
 
   return isWatering
-    ? "/assets/characters/girl-farm-watering.png"
-    : "/assets/characters/girl-farm-standing.png";
+    ? "/assets/characters/hani_watering.png"
+    : "/assets/characters/hani_idle.png";
 }
 
 export default function FarmPage() {
