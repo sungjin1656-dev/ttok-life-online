@@ -349,46 +349,19 @@ function characterAsset(
       ? characterId.trim().toLowerCase()
       : "hani";
 
-  const assetMap = {
-    hani: {
-      idle:
-        "/assets/characters/hani_idle.png",
-      watering:
-        "/assets/characters/hani_watering.png",
-    },
+  const isBoy =
+    safeCharacterId === "hajun" ||
+    safeCharacterId === "minjun";
 
-    harin: {
-      idle:
-        "/assets/characters/hani_idle.png",
-      watering:
-        "/assets/characters/hani_watering.png",
-    },
-
-    hajun: {
-      idle:
-        "/assets/characters/hajun_idle.png",
-      watering:
-        "/assets/characters/hajun_watering.png",
-    },
-
-    minjun: {
-      idle:
-        "/assets/characters/hajun_idle.png",
-      watering:
-        "/assets/characters/hajun_watering.png",
-    },
-  } as const;
-
-  const character =
-    safeCharacterId in assetMap
-      ? assetMap[
-          safeCharacterId as keyof typeof assetMap
-        ]
-      : assetMap.hani;
+  if (isBoy) {
+    return isWatering
+      ? "/character/hajun_watering.png"
+      : "/character/hajun_idle.png";
+  }
 
   return isWatering
-    ? character.watering
-    : character.idle;
+    ? "/character/hani_watering.png"
+    : "/character/hani_idle.png";
 }
 
 export default function FarmPage() {
