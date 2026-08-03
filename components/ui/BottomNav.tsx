@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 
-const FALLBACK_MALL_URL = "https://ttokmall.cafe24.co.kr";
+const FALLBACK_MALL_URL = "https://ttokmall.cafe24.com";
 
 const items = [
   {
