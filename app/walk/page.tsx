@@ -791,50 +791,73 @@ export default function WalkPage() {
         0;
 
       /*
-       * 모바일웹 V13 - 착지 충격 파형 판정
+       * 모바일웹 V14 - 착지 충격 파형 + 상승/하강 속도 판정
        *
-       * 약한 접촉이 순간적으로 튀는 문제를 줄이기 위해
-       * 충격 크기만 보지 않고 아래 조건을 함께 확인합니다.
+       * 휴대폰을 손으로 가볍게 만지거나 옆면을 톡 건드리는 동작을
+       * 최대한 제외하기 위해 충격의 전체 모양을 검사합니다.
        *
-       * 1. 시작 충격이 일정 수준 이상인지
-       * 2. 순간 상승량이 충분한지
-       * 3. 최종 최고점이 실제 착지 수준인지
-       * 4. 충격이 너무 짧거나 오래 지속되지 않는지
-       * 5. 충격 면적이 충분한지
+       * 1. 충격 시작 강도
+       * 2. 순간 상승량
+       * 3. 최종 최고점
+       * 4. 최고점까지 올라가는 속도
+       * 5. 최고점에서 내려오는 속도
+       * 6. 충격 지속시간
+       * 7. 전체 충격 면적
        */
       const IMPACT_START_THRESHOLD =
-        1.12;
+        1.20;
 
       const FINAL_PEAK_THRESHOLD =
-        1.42;
+        1.55;
 
       const IMPACT_DELTA_THRESHOLD =
-        0.62;
+        0.68;
 
       const RELEASE_THRESHOLD =
-        0.82;
+        0.80;
 
       const MIN_IMPACT_INTERVAL_MS =
-        170;
-
-      const MIN_IMPACT_DURATION_MS =
-        45;
-
-      const MAX_IMPACT_DURATION_MS =
-        720;
+        180;
 
       /*
-       * 약한 손 접촉은 최고점이 잠깐 생겨도
-       * 충격 면적이 작기 때문에 여기서 제외됩니다.
+       * 손으로 짧게 톡 건드리는 접촉을 제외하기 위해
+       * 최소 충격 지속시간을 V13보다 높였습니다.
+       */
+      const MIN_IMPACT_DURATION_MS =
+        65;
+
+      const MAX_IMPACT_DURATION_MS =
+        650;
+
+      /*
+       * 착지 충격은 시작 후 빠르게 최고점에 도달해야 합니다.
+       */
+      const MIN_RISE_DURATION_MS =
+        20;
+
+      const MAX_RISE_DURATION_MS =
+        220;
+
+      /*
+       * 단위: 센서 강도 / ms
+       */
+      const MIN_RISE_RATE =
+        0.006;
+
+      const MIN_FALL_RATE =
+        0.004;
+
+      /*
+       * 약한 접촉은 최고점이 잠깐 생겨도 면적이 작아 제외됩니다.
        */
       const MIN_IMPACT_AREA =
-        52;
+        72;
 
       const MAX_IMPACT_STRENGTH =
         22;
 
       const FILTER_RATIO =
-        0.68;
+        0.66;
 
       let previousFilteredStrength =
         0;
@@ -843,6 +866,12 @@ export default function WalkPage() {
         0;
 
       let previousSampleTime =
+        0;
+
+      let impactStartStrength =
+        0;
+
+      let peakReachedAt =
         0;
 
       const resetImpact =
@@ -863,6 +892,12 @@ export default function WalkPage() {
             0;
 
           previousSampleTime =
+            0;
+
+          impactStartStrength =
+            0;
+
+          peakReachedAt =
             0;
         };
 
@@ -983,6 +1018,7 @@ export default function WalkPage() {
 
         /*
          * 아직 충격이 시작되지 않은 상태입니다.
+         * 시작 강도와 순간 상승량을 모두 통과해야 합니다.
          */
         if (
           browserPeakStartedAt.current ===
@@ -1016,6 +1052,12 @@ export default function WalkPage() {
           browserPeakDelta.current =
             strengthDelta;
 
+          impactStartStrength =
+            filteredStrength;
+
+          peakReachedAt =
+            now;
+
           browserStepArmed.current =
             false;
 
@@ -1038,19 +1080,20 @@ export default function WalkPage() {
         previousSampleTime =
           now;
 
-        /*
-         * 시간에 따른 충격 크기를 누적하여
-         * 매우 짧은 약한 접촉을 제거합니다.
-         */
         impactArea +=
           filteredStrength *
           sampleInterval;
 
-        browserPeakStrength.current =
-          Math.max(
-            browserPeakStrength.current,
-            filteredStrength,
-          );
+        if (
+          filteredStrength >
+          browserPeakStrength.current
+        ) {
+          browserPeakStrength.current =
+            filteredStrength;
+
+          peakReachedAt =
+            now;
+        }
 
         browserPeakDelta.current =
           Math.max(
@@ -1072,21 +1115,58 @@ export default function WalkPage() {
         }
 
         /*
-         * 충격이 가라앉으면 전체 파형을 검사합니다.
+         * 충격이 가라앉으면 상승·하강 속도까지 포함해
+         * 전체 파형을 최종 검사합니다.
          */
         if (
           filteredStrength <=
           RELEASE_THRESHOLD
         ) {
+          const riseDuration =
+            Math.max(
+              1,
+              peakReachedAt -
+                browserPeakStartedAt.current,
+            );
+
+          const fallDuration =
+            Math.max(
+              1,
+              now -
+                peakReachedAt,
+            );
+
+          const riseRate =
+            (
+              browserPeakStrength.current -
+              impactStartStrength
+            ) /
+            riseDuration;
+
+          const fallRate =
+            (
+              browserPeakStrength.current -
+              filteredStrength
+            ) /
+            fallDuration;
+
           const validImpact =
             impactDuration >=
               MIN_IMPACT_DURATION_MS &&
             impactDuration <=
               MAX_IMPACT_DURATION_MS &&
+            riseDuration >=
+              MIN_RISE_DURATION_MS &&
+            riseDuration <=
+              MAX_RISE_DURATION_MS &&
             browserPeakStrength.current >=
               FINAL_PEAK_THRESHOLD &&
             browserPeakDelta.current >=
               IMPACT_DELTA_THRESHOLD &&
+            riseRate >=
+              MIN_RISE_RATE &&
+            fallRate >=
+              MIN_FALL_RATE &&
             impactArea >=
               MIN_IMPACT_AREA;
 
@@ -1455,7 +1535,7 @@ export default function WalkPage() {
     sensorMode === "android"
       ? "앱 걸음 센서로 실시간 측정 중입니다."
       : sensorMode === "browser"
-        ? "모바일웹은 충격의 크기·상승량·지속시간을 함께 확인해 착지 충격을 기록합니다. 약한 접촉과 미세한 진동은 제외됩니다."
+        ? "모바일웹은 충격의 크기·상승속도·하강속도·지속시간을 함께 확인해 착지 충격을 기록합니다. 휴대폰을 가볍게 만지거나 약하게 건드리는 움직임은 제외됩니다."
         : "";
 
   return (
