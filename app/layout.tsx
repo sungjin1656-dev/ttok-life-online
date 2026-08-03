@@ -3,7 +3,6 @@ import "./globals.css";
 
 import { GameProvider } from "@/context/GameContext";
 import { FlexMemberProvider } from "@/context/FlexMemberContext";
-import ExitGameButton from "@/components/ExitGameButton";
 
 export const metadata: Metadata = {
   title: "TTOK LIFE",
@@ -20,11 +19,7 @@ export default function RootLayout({
       <body>
         <FlexMemberProvider>
           <GameProvider>
-            <main className="game-shell">
-              {children}
-            </main>
-
-            <ExitGameButton />
+            <main className="game-shell">{children}</main>
           </GameProvider>
         </FlexMemberProvider>
       </body>
