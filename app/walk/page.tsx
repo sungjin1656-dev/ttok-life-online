@@ -791,73 +791,81 @@ export default function WalkPage() {
         0;
 
       /*
-       * 모바일웹 V14 - 착지 충격 파형 + 상승/하강 속도 판정
+       * 모바일웹 V15 FINAL
+       * V13.7 감도 + V14 파형 검사 + 패턴 보조 차단
        *
-       * 휴대폰을 손으로 가볍게 만지거나 옆면을 톡 건드리는 동작을
-       * 최대한 제외하기 위해 충격의 전체 모양을 검사합니다.
-       *
-       * 1. 충격 시작 강도
-       * 2. 순간 상승량
-       * 3. 최종 최고점
-       * 4. 최고점까지 올라가는 속도
-       * 5. 최고점에서 내려오는 속도
-       * 6. 충격 지속시간
-       * 7. 전체 충격 면적
+       * 패턴 일치가 걸음 인정의 필수조건은 아닙니다.
+       * 충격 파형이 정상 착지 조건을 통과하면 바로 1걸음으로 인정하고,
+       * 직전 충격과 모든 특성이 지나치게 다른 경우에만
+       * 불규칙 접촉으로 판단해 보조적으로 차단합니다.
        */
       const IMPACT_START_THRESHOLD =
-        1.20;
+        1.18;
 
       const FINAL_PEAK_THRESHOLD =
-        1.55;
+        1.51;
 
       const IMPACT_DELTA_THRESHOLD =
-        0.68;
+        0.66;
 
       const RELEASE_THRESHOLD =
-        0.80;
+        0.805;
 
       const MIN_IMPACT_INTERVAL_MS =
         180;
 
-      /*
-       * 손으로 짧게 톡 건드리는 접촉을 제외하기 위해
-       * 최소 충격 지속시간을 V13보다 높였습니다.
-       */
       const MIN_IMPACT_DURATION_MS =
-        65;
+        60;
 
       const MAX_IMPACT_DURATION_MS =
-        650;
+        665;
 
-      /*
-       * 착지 충격은 시작 후 빠르게 최고점에 도달해야 합니다.
-       */
       const MIN_RISE_DURATION_MS =
-        20;
+        18;
 
       const MAX_RISE_DURATION_MS =
-        220;
+        230;
 
-      /*
-       * 단위: 센서 강도 / ms
-       */
       const MIN_RISE_RATE =
-        0.006;
+        0.0052;
 
       const MIN_FALL_RATE =
-        0.004;
+        0.0035;
 
-      /*
-       * 약한 접촉은 최고점이 잠깐 생겨도 면적이 작아 제외됩니다.
-       */
       const MIN_IMPACT_AREA =
-        72;
+        67;
 
       const MAX_IMPACT_STRENGTH =
         22;
 
       const FILTER_RATIO =
-        0.66;
+        0.665;
+
+      /*
+       * 패턴 보조 차단 기준
+       *
+       * 최고점·지속시간·면적이 모두 크게 다를 때만
+       * 불규칙한 손 접촉으로 판단합니다.
+       * 정상 보행의 자연스러운 차이는 허용합니다.
+       */
+      const SUSPICIOUS_PEAK_DIFFERENCE_RATIO =
+        0.62;
+
+      const SUSPICIOUS_DURATION_DIFFERENCE_RATIO =
+        0.68;
+
+      const SUSPICIOUS_AREA_DIFFERENCE_RATIO =
+        0.72;
+
+      const PATTERN_MEMORY_MS =
+        1_800;
+
+      type ImpactPattern = {
+        peak: number;
+        duration: number;
+        area: number;
+        time: number;
+      };
 
       let previousFilteredStrength =
         0;
@@ -873,6 +881,10 @@ export default function WalkPage() {
 
       let peakReachedAt =
         0;
+
+      let previousAcceptedPattern:
+        ImpactPattern | null =
+          null;
 
       const resetImpact =
         () => {
@@ -901,8 +913,74 @@ export default function WalkPage() {
             0;
         };
 
+      const relativeDifference =
+        (
+          first: number,
+          second: number,
+        ) => {
+          const maximum =
+            Math.max(
+              Math.abs(first),
+              Math.abs(second),
+              0.0001,
+            );
+
+          return (
+            Math.abs(
+              first - second,
+            ) / maximum
+          );
+        };
+
+      const isSuspiciousPattern =
+        (
+          previous: ImpactPattern,
+          current: ImpactPattern,
+        ) => {
+          if (
+            current.time -
+              previous.time >
+            PATTERN_MEMORY_MS
+          ) {
+            return false;
+          }
+
+          const peakDifferent =
+            relativeDifference(
+              previous.peak,
+              current.peak,
+            ) >
+            SUSPICIOUS_PEAK_DIFFERENCE_RATIO;
+
+          const durationDifferent =
+            relativeDifference(
+              previous.duration,
+              current.duration,
+            ) >
+            SUSPICIOUS_DURATION_DIFFERENCE_RATIO;
+
+          const areaDifferent =
+            relativeDifference(
+              previous.area,
+              current.area,
+            ) >
+            SUSPICIOUS_AREA_DIFFERENCE_RATIO;
+
+          /*
+           * 세 특성이 모두 크게 다를 때만 차단합니다.
+           */
+          return (
+            peakDifferent &&
+            durationDifferent &&
+            areaDifferent
+          );
+        };
+
       const acceptImpact =
-        (now: number) => {
+        (
+          now: number,
+          pattern: ImpactPattern,
+        ) => {
           const previousTime =
             browserLastStepTime.current;
 
@@ -913,6 +991,23 @@ export default function WalkPage() {
           ) {
             return;
           }
+
+          if (
+            previousAcceptedPattern &&
+            isSuspiciousPattern(
+              previousAcceptedPattern,
+              pattern,
+            )
+          ) {
+            /*
+             * 의심 패턴은 걸음으로 반영하지 않지만,
+             * 다음 비교 기준으로 사용하지도 않습니다.
+             */
+            return;
+          }
+
+          previousAcceptedPattern =
+            pattern;
 
           browserLastStepTime.current =
             now;
@@ -1016,10 +1111,6 @@ export default function WalkPage() {
         const now =
           Date.now();
 
-        /*
-         * 아직 충격이 시작되지 않은 상태입니다.
-         * 시작 강도와 순간 상승량을 모두 통과해야 합니다.
-         */
         if (
           browserPeakStartedAt.current ===
           0
@@ -1114,10 +1205,6 @@ export default function WalkPage() {
           return;
         }
 
-        /*
-         * 충격이 가라앉으면 상승·하강 속도까지 포함해
-         * 전체 파형을 최종 검사합니다.
-         */
         if (
           filteredStrength <=
           RELEASE_THRESHOLD
@@ -1150,6 +1237,12 @@ export default function WalkPage() {
             ) /
             fallDuration;
 
+          const peak =
+            browserPeakStrength.current;
+
+          const area =
+            impactArea;
+
           const validImpact =
             impactDuration >=
               MIN_IMPACT_DURATION_MS &&
@@ -1159,7 +1252,7 @@ export default function WalkPage() {
               MIN_RISE_DURATION_MS &&
             riseDuration <=
               MAX_RISE_DURATION_MS &&
-            browserPeakStrength.current >=
+            peak >=
               FINAL_PEAK_THRESHOLD &&
             browserPeakDelta.current >=
               IMPACT_DELTA_THRESHOLD &&
@@ -1167,16 +1260,32 @@ export default function WalkPage() {
               MIN_RISE_RATE &&
             fallRate >=
               MIN_FALL_RATE &&
-            impactArea >=
+            area >=
               MIN_IMPACT_AREA;
 
           resetImpact();
 
-          if (validImpact) {
-            acceptImpact(
-              now,
-            );
+          if (!validImpact) {
+            return;
           }
+
+          const pattern: ImpactPattern = {
+            peak,
+            duration:
+              impactDuration,
+            area,
+            time:
+              now,
+          };
+
+          /*
+           * 정상 파형은 즉시 1걸음 반영합니다.
+           * 패턴 비교는 극단적으로 불규칙한 충격만 차단합니다.
+           */
+          acceptImpact(
+            now,
+            pattern,
+          );
         }
       };
 
@@ -1535,7 +1644,7 @@ export default function WalkPage() {
     sensorMode === "android"
       ? "앱 걸음 센서로 실시간 측정 중입니다."
       : sensorMode === "browser"
-        ? "모바일웹은 충격의 크기·상승속도·하강속도·지속시간을 함께 확인해 착지 충격을 기록합니다. 휴대폰을 가볍게 만지거나 약하게 건드리는 움직임은 제외됩니다."
+        ? "모바일웹은 착지 충격의 크기·상승속도·하강속도를 확인하고, 극단적으로 불규칙한 충격만 보조적으로 제외합니다."
         : "";
 
   return (
