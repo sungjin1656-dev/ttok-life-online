@@ -751,17 +751,17 @@ export default function WalkPage() {
       const SEQUENCE_KEEP_ALIVE_MS =
         2_500;
       const MIN_VALID_INTERVAL_MS =
-        220;
+        190;
       const MAX_VALID_INTERVAL_MS =
-        1_650;
+        1_800;
       const MAX_RHYTHM_DIFFERENCE_MS =
-        600;
+        850;
       const MIN_STEP_STRENGTH =
-        0.82;
+        0.58;
       const MAX_STEP_STRENGTH =
-        10.5;
+        12.5;
       const MIN_REARM_RATIO =
-        0.20;
+        0.42;
 
       const resetBrowserSequence =
         () => {
@@ -912,19 +912,28 @@ export default function WalkPage() {
          * 다음 걸음을 받기 전에 충분히 진동이 가라앉아야 합니다.
          * 책상 위 잔진동이나 다리 떨림의 연속 오인식을 줄입니다.
          */
+        const now =
+          Date.now();
+
+        /*
+         * 진동이 충분히 내려오면 즉시 다음 걸음을 받을 준비를 합니다.
+         * 일부 iPhone은 센서값이 0 근처까지 잘 내려오지 않으므로,
+         * 일정 시간이 지나면 자동으로 다시 활성화합니다.
+         */
         if (
           motionStrength <
           Math.max(
-            0.24,
+            0.52,
             browserLastAcceptedStrength
               .current *
               MIN_REARM_RATIO,
-          )
+          ) ||
+          now -
+            browserLastStepTime.current >=
+            220
         ) {
           browserStepArmed.current =
             true;
-
-          return;
         }
 
         if (
@@ -951,9 +960,6 @@ export default function WalkPage() {
 
           return;
         }
-
-        const now =
-          Date.now();
 
         const previousStepTime =
           browserLastStepTime.current;
@@ -1417,7 +1423,7 @@ export default function WalkPage() {
     sensorMode === "android"
       ? "앱 걸음 센서로 실시간 측정 중입니다."
       : sensorMode === "browser"
-        ? "모바일웹은 3걸음과 움직임 리듬을 확인한 뒤 기록합니다. 실제 걷기와 달리기를 우선하며 규칙적인 흔들림도 일부 반영될 수 있습니다."
+        ? "모바일웹은 처음 3회의 움직임과 리듬을 확인한 뒤 기록합니다. 실제 걷기·달리기와 규칙적인 움직임이 이전보다 잘 반영됩니다."
         : "";
 
   return (
