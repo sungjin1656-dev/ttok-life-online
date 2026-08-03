@@ -751,17 +751,17 @@ export default function WalkPage() {
       const SEQUENCE_KEEP_ALIVE_MS =
         2_500;
       const MIN_VALID_INTERVAL_MS =
-        260;
+        220;
       const MAX_VALID_INTERVAL_MS =
-        1_500;
+        1_650;
       const MAX_RHYTHM_DIFFERENCE_MS =
-        450;
+        600;
       const MIN_STEP_STRENGTH =
-        1.1;
+        0.82;
       const MAX_STEP_STRENGTH =
-        8.5;
+        10.5;
       const MIN_REARM_RATIO =
-        0.26;
+        0.20;
 
       const resetBrowserSequence =
         () => {
@@ -915,7 +915,7 @@ export default function WalkPage() {
         if (
           motionStrength <
           Math.max(
-            0.34,
+            0.24,
             browserLastAcceptedStrength
               .current *
               MIN_REARM_RATIO,
@@ -1417,7 +1417,7 @@ export default function WalkPage() {
     sensorMode === "android"
       ? "앱 걸음 센서로 실시간 측정 중입니다."
       : sensorMode === "browser"
-        ? "모바일웹은 3걸음과 움직임 리듬을 확인한 뒤 기록합니다. 실제 걷기를 우선하되 규칙적인 움직임은 일부 반영될 수 있습니다."
+        ? "모바일웹은 3걸음과 움직임 리듬을 확인한 뒤 기록합니다. 실제 걷기와 달리기를 우선하며 규칙적인 흔들림도 일부 반영될 수 있습니다."
         : "";
 
   return (
