@@ -787,68 +787,33 @@ export default function WalkPage() {
         0;
 
       /*
-       * 모바일웹 V7 - 큰 움직임 + 변화량 + 피크 종료 방식
+       * 모바일웹 V9 - 큰 흔들림 1회 = 걸음 1회
        *
-       * 작은 진동은 후보에도 넣지 않습니다.
-       * 휴대폰 전체가 크게 움직였다가 다시 가라앉는 한 주기를
-       * 걸음 후보 1개로 판단합니다.
-       */
-      const CONFIRM_CANDIDATES = 3;
-
-      const MIN_STEP_INTERVAL_MS =
-        280;
-
-      const MAX_STEP_INTERVAL_MS =
-        1_500;
-
-      const MAX_INTERVAL_DIFFERENCE_MS =
-        520;
-
-      /*
-       * 절대 움직임 기준:
-       * 실제 걷기보다 약한 손떨림·다리떨림을 입구에서 제거합니다.
+       * 실제 보행 리듬을 복잡하게 판정하지 않습니다.
+       * 작은 진동은 무시하고, 휴대폰 전체가 크게 움직였다가
+       * 다시 가라앉는 한 주기만 걸음으로 인정합니다.
        */
       const LARGE_MOTION_THRESHOLD =
-        0.95;
+        1.35;
 
-      /*
-       * 직전 센서 벡터 대비 변화량 기준:
-       * 단순 잔진동보다 휴대폰 전체가 이동하는 순간을 찾습니다.
-       */
-      const VECTOR_DELTA_THRESHOLD =
-        0.65;
-
-      /*
-       * 피크가 이 값 아래로 내려오면 한 번의 큰 움직임이 끝난 것으로 봅니다.
-       */
       const RELEASE_THRESHOLD =
-        0.72;
+        0.62;
 
-      /*
-       * 큰 움직임이 너무 오래 지속되면 한 걸음으로 인정하지 않습니다.
-       */
+      const MIN_STEP_INTERVAL_MS =
+        320;
+
       const MAX_PEAK_DURATION_MS =
-        1_400;
+        1_200;
 
       const MAX_MOTION_STRENGTH =
-        18;
+        20;
 
-      const WALKING_TIMEOUT_MS =
-        1_900;
-
-      /*
-       * 센서 노이즈를 줄이는 저역 통과 필터입니다.
-       * 값이 작을수록 부드럽고, 클수록 즉각 반응합니다.
-       */
       const FILTER_RATIO =
-        0.52;
+        0.46;
 
       const resetPeak =
         () => {
           browserPeakStrength.current =
-            0;
-
-          browserPeakDelta.current =
             0;
 
           browserPeakStartedAt.current =
@@ -858,188 +823,26 @@ export default function WalkPage() {
             true;
         };
 
-      const resetSequence =
-        () => {
-          browserPendingSteps.current =
-            0;
-
-          browserPendingStartedAt.current =
-            0;
-
-          browserPendingIntervals.current =
-            [];
-
-          browserWalkingSequenceActive.current =
-            false;
-
-          resetPeak();
-        };
-
-      const acceptSteps =
-        (count: number) => {
-          if (count <= 0) {
-            return;
-          }
-
-          applyLiveTodaySteps(
-            liveGameRef.current
-              .todaySteps + count,
-          );
-        };
-
-      const isConfirmedRhythm =
-        () => {
-          const intervals =
-            browserPendingIntervals.current
-              .slice(
-                -(
-                  CONFIRM_CANDIDATES -
-                  1
-                ),
-              );
-
-          if (
-            intervals.length <
-            CONFIRM_CANDIDATES - 1
-          ) {
-            return false;
-          }
-
-          const allValid =
-            intervals.every(
-              (interval) =>
-                interval >=
-                  MIN_STEP_INTERVAL_MS &&
-                interval <=
-                  MAX_STEP_INTERVAL_MS,
-            );
-
-          if (!allValid) {
-            return false;
-          }
-
-          const minimum =
-            Math.min(
-              ...intervals,
-            );
-
-          const maximum =
-            Math.max(
-              ...intervals,
-            );
-
-          return (
-            maximum - minimum <=
-            MAX_INTERVAL_DIFFERENCE_MS
-          );
-        };
-
-      const registerCandidate =
+      const acceptOneStep =
         (now: number) => {
           const previousTime =
             browserLastStepTime.current;
 
-          const interval =
-            previousTime > 0
-              ? now - previousTime
-              : 0;
-
           if (
             previousTime > 0 &&
-            interval <
+            now - previousTime <
               MIN_STEP_INTERVAL_MS
           ) {
             return;
           }
 
-          if (
-            previousTime > 0 &&
-            interval >
-              WALKING_TIMEOUT_MS
-          ) {
-            browserPendingSteps.current =
-              0;
-
-            browserPendingStartedAt.current =
-              0;
-
-            browserPendingIntervals.current =
-              [];
-
-            browserWalkingSequenceActive.current =
-              false;
-          }
-
           browserLastStepTime.current =
             now;
 
-          if (
-            browserWalkingSequenceActive
-              .current
-          ) {
-            if (
-              interval >=
-                MIN_STEP_INTERVAL_MS &&
-              interval <=
-                MAX_STEP_INTERVAL_MS
-            ) {
-              acceptSteps(1);
-
-              return;
-            }
-
-            browserWalkingSequenceActive.current =
-              false;
-
-            browserPendingSteps.current =
-              0;
-
-            browserPendingIntervals.current =
-              [];
-          }
-
-          if (
-            browserPendingSteps.current ===
-            0
-          ) {
-            browserPendingStartedAt.current =
-              now;
-          } else if (interval > 0) {
-            browserPendingIntervals.current =
-              [
-                ...browserPendingIntervals
-                  .current,
-                interval,
-              ].slice(-4);
-          }
-
-          browserPendingSteps.current +=
-            1;
-
-          if (
-            browserPendingSteps.current >=
-              CONFIRM_CANDIDATES &&
-            isConfirmedRhythm()
-          ) {
-            const confirmed =
-              browserPendingSteps.current;
-
-            browserPendingSteps.current =
-              0;
-
-            browserPendingStartedAt.current =
-              0;
-
-            browserPendingIntervals.current =
-              [];
-
-            browserWalkingSequenceActive.current =
-              true;
-
-            acceptSteps(
-              confirmed,
-            );
-          }
+          applyLiveTodaySteps(
+            liveGameRef.current
+              .todaySteps + 1,
+          );
         };
 
       const handler = (
@@ -1060,9 +863,7 @@ export default function WalkPage() {
         const includingGravity =
           event.accelerationIncludingGravity;
 
-        let x = 0;
-        let y = 0;
-        let z = 0;
+        let motionStrength = 0;
 
         if (
           linear &&
@@ -1070,9 +871,15 @@ export default function WalkPage() {
           linear.y !== null &&
           linear.z !== null
         ) {
-          x = linear.x;
-          y = linear.y;
-          z = linear.z;
+          motionStrength =
+            Math.sqrt(
+              linear.x *
+                linear.x +
+                linear.y *
+                  linear.y +
+                linear.z *
+                  linear.z,
+            );
         } else if (
           includingGravity &&
           includingGravity.x !==
@@ -1082,20 +889,14 @@ export default function WalkPage() {
           includingGravity.z !==
             null
         ) {
-          x =
-            includingGravity.x;
-
-          y =
-            includingGravity.y;
-
-          z =
-            includingGravity.z;
-
           const magnitude =
             Math.sqrt(
-              x * x +
-                y * y +
-                z * z,
+              includingGravity.x *
+                includingGravity.x +
+                includingGravity.y *
+                  includingGravity.y +
+                includingGravity.z *
+                  includingGravity.z,
             );
 
           browserGravity.current =
@@ -1103,36 +904,14 @@ export default function WalkPage() {
               0.94 +
             magnitude * 0.06;
 
-          /*
-           * 중력 포함 센서만 제공되는 기기에서는
-           * 전체 벡터를 거의 0으로 축소하지 않고,
-           * 중력 크기와의 차이를 현재 방향에 투영합니다.
-           */
-          const linearMagnitude =
+          motionStrength =
             Math.abs(
               magnitude -
                 browserGravity.current,
             );
-
-          const directionScale =
-            magnitude > 0
-              ? linearMagnitude /
-                magnitude
-              : 0;
-
-          x *= directionScale;
-          y *= directionScale;
-          z *= directionScale;
         } else {
           return;
         }
-
-        const rawStrength =
-          Math.sqrt(
-            x * x +
-              y * y +
-              z * z,
-          );
 
         browserFilteredStrength.current =
           browserFilteredStrength.current *
@@ -1140,65 +919,35 @@ export default function WalkPage() {
               1 -
               FILTER_RATIO
             ) +
-          rawStrength *
+          motionStrength *
             FILTER_RATIO;
 
-        const motionStrength =
+        const filteredStrength =
           browserFilteredStrength.current;
-
-        const previousVector =
-          browserPreviousVector.current;
-
-        const vectorDelta =
-          Math.sqrt(
-            (
-              x -
-              previousVector.x
-            ) **
-              2 +
-              (
-                y -
-                previousVector.y
-              ) **
-                2 +
-              (
-                z -
-                previousVector.z
-              ) **
-                2,
-          );
-
-        browserPreviousVector.current = {
-          x,
-          y,
-          z,
-        };
 
         const now =
           Date.now();
 
         /*
-         * 아직 큰 움직임이 시작되지 않은 상태입니다.
-         * 절대 강도와 축 변화량을 동시에 통과해야 피크를 시작합니다.
+         * 아직 큰 움직임이 시작되지 않았다면
+         * 기준 이상일 때만 피크를 시작합니다.
          */
         if (
           browserPeakStartedAt.current ===
           0
         ) {
           if (
-            motionStrength <
-              LARGE_MOTION_THRESHOLD ||
-            vectorDelta <
-              VECTOR_DELTA_THRESHOLD
+            filteredStrength <
+            LARGE_MOTION_THRESHOLD
           ) {
             return;
           }
 
           if (
-            motionStrength >
+            filteredStrength >
             MAX_MOTION_STRENGTH
           ) {
-            resetSequence();
+            resetPeak();
 
             return;
           }
@@ -1207,10 +956,7 @@ export default function WalkPage() {
             now;
 
           browserPeakStrength.current =
-            motionStrength;
-
-          browserPeakDelta.current =
-            vectorDelta;
+            filteredStrength;
 
           browserStepArmed.current =
             false;
@@ -1221,13 +967,7 @@ export default function WalkPage() {
         browserPeakStrength.current =
           Math.max(
             browserPeakStrength.current,
-            motionStrength,
-          );
-
-        browserPeakDelta.current =
-          Math.max(
-            browserPeakDelta.current,
-            vectorDelta,
+            filteredStrength,
           );
 
         const peakDuration =
@@ -1235,7 +975,8 @@ export default function WalkPage() {
           browserPeakStartedAt.current;
 
         /*
-         * 너무 오래 이어지는 진동은 걷기 피크로 인정하지 않습니다.
+         * 너무 오래 이어지는 움직임은 한 번 폐기하고
+         * 다음 큰 움직임을 기다립니다.
          */
         if (
           peakDuration >
@@ -1247,22 +988,20 @@ export default function WalkPage() {
         }
 
         /*
-         * 큰 움직임이 다시 충분히 가라앉았을 때 후보 1개를 확정합니다.
+         * 큰 움직임이 다시 가라앉으면 1걸음 인정합니다.
          */
         if (
-          motionStrength <=
+          filteredStrength <=
           RELEASE_THRESHOLD
         ) {
           const validPeak =
             browserPeakStrength.current >=
-              LARGE_MOTION_THRESHOLD &&
-            browserPeakDelta.current >=
-              VECTOR_DELTA_THRESHOLD;
+            LARGE_MOTION_THRESHOLD;
 
           resetPeak();
 
           if (validPeak) {
-            registerCandidate(
+            acceptOneStep(
               now,
             );
           }
@@ -1624,7 +1363,7 @@ export default function WalkPage() {
     sensorMode === "android"
       ? "앱 걸음 센서로 실시간 측정 중입니다."
       : sensorMode === "browser"
-        ? "모바일웹은 휴대폰의 큰 움직임과 축 변화량을 확인한 뒤 기록합니다. 미세한 떨림은 무시하고 실제 걷기와 달리기를 우선합니다."
+        ? "모바일웹은 작은 진동을 무시하고 휴대폰이 크게 움직였다가 가라앉는 순간을 1걸음으로 기록합니다."
         : "";
 
   return (
