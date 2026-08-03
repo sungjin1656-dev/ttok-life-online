@@ -1120,14 +1120,14 @@
 ========================== */
 
 .scope :global(.farm-master-v2-character.standing){
-    left:0px;
+    left:60px;
     bottom:72px;
     width:52%;
     height:240px;
 }
 
 .scope :global(.farm-master-v2-character.watering){
-    left:0px;
+    left:60px;
     bottom:72px;
     width:52%;
     height:240px;
