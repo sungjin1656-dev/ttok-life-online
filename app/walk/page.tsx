@@ -795,7 +795,7 @@ export default function WalkPage() {
        *
        * 방향과 보행 리듬은 판정하지 않습니다.
        * 사람이 한 발을 디딜 때 주머니 속 휴대폰에 전달되는 것처럼,
-       * 짧고 강하게 상승하는 충격만 감지합니다.
+       * 짧고 분명하게 상승하는 착지 충격만 감지합니다.
        *
        * 작은 떨림이나 부드러운 이동은:
        * - 절대 충격 크기
@@ -803,13 +803,13 @@ export default function WalkPage() {
        * 중 하나라도 부족하면 무시합니다.
        */
       const IMPACT_THRESHOLD =
-        1.35;
+        1.05;
 
       const IMPACT_DELTA_THRESHOLD =
-        0.72;
+        0.48;
 
       const RELEASE_THRESHOLD =
-        0.72;
+        0.82;
 
       /*
        * 같은 착지 충격이 여러 센서 이벤트로 중복 집계되는 것만 막습니다.
@@ -823,7 +823,7 @@ export default function WalkPage() {
        * 오래 지속되는 흔들림은 한 번의 착지로 보지 않습니다.
        */
       const MAX_IMPACT_DURATION_MS =
-        650;
+        750;
 
       const MAX_IMPACT_STRENGTH =
         22;
@@ -1416,7 +1416,7 @@ export default function WalkPage() {
     sensorMode === "android"
       ? "앱 걸음 센서로 실시간 측정 중입니다."
       : sensorMode === "browser"
-        ? "모바일웹은 발을 디딜 때처럼 짧고 강한 충격이 발생했다가 가라앉는 순간을 1걸음으로 기록합니다. 미세한 진동과 부드러운 움직임은 무시합니다."
+        ? "모바일웹은 발을 디딜 때처럼 짧고 분명한 착지 충격이 발생했다가 가라앉는 순간을 1걸음으로 기록합니다. 미세한 진동과 부드러운 움직임은 무시합니다."
         : "";
 
   return (
