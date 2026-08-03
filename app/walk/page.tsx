@@ -760,15 +760,15 @@ export default function WalkPage() {
       const SEQUENCE_WINDOW_MS =
         5_500;
       const MIN_STEP_INTERVAL_MS =
-        240;
+        320;
       const MAX_STEP_INTERVAL_MS =
         1_450;
       const MAX_RHYTHM_SPREAD_MS =
-        520;
+        400;
       const SEQUENCE_RESET_MS =
         2_000;
       const MIN_STEP_STRENGTH =
-        0.48;
+        1.5;
       const MAX_STEP_STRENGTH =
         12;
 
