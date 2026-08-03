@@ -314,6 +314,28 @@ export default function WalkPage() {
     useRef(0);
 
   /*
+   * 큰 움직임의 방향을 비교합니다.
+   * 동서남북으로 방향을 계속 바꾸는 흔들기는 제외하고,
+   * 비슷한 축으로 반복되는 움직임만 걸음으로 인정합니다.
+   */
+  const browserPeakDirection =
+    useRef({
+      x: 0,
+      y: 0,
+      z: 0,
+    });
+
+  const browserPreviousAcceptedDirection =
+    useRef<{
+      x: number;
+      y: number;
+      z: number;
+    } | null>(null);
+
+  const browserDirectionMatchCount =
+    useRef(0);
+
+  /*
    * Android 앱 WebView 여부 확인
    *
    * 앱 안에서는 앱 설치 안내를 표시하지 않습니다.
@@ -753,28 +775,10 @@ export default function WalkPage() {
       browserSensorReceived.current =
         false;
 
-      browserPendingSteps.current =
+      browserFilteredStrength.current =
         0;
-
-      browserPendingStartedAt.current =
-        0;
-
-      browserPendingIntervals.current =
-        [];
-
-      browserWalkingSequenceActive.current =
-        false;
 
       browserLastAcceptedStrength.current =
-        0;
-
-      browserPreviousVector.current = {
-        x: 0,
-        y: 0,
-        z: 0,
-      };
-
-      browserFilteredStrength.current =
         0;
 
       browserPeakStrength.current =
@@ -787,33 +791,59 @@ export default function WalkPage() {
         0;
 
       /*
-       * 모바일웹 V9 - 큰 흔들림 1회 = 걸음 1회
+       * 모바일웹 V11 - 착지 충격 1회 = 걸음 1회
        *
-       * 실제 보행 리듬을 복잡하게 판정하지 않습니다.
-       * 작은 진동은 무시하고, 휴대폰 전체가 크게 움직였다가
-       * 다시 가라앉는 한 주기만 걸음으로 인정합니다.
+       * 방향과 보행 리듬은 판정하지 않습니다.
+       * 사람이 한 발을 디딜 때 주머니 속 휴대폰에 전달되는 것처럼,
+       * 짧고 강하게 상승하는 충격만 감지합니다.
+       *
+       * 작은 떨림이나 부드러운 이동은:
+       * - 절대 충격 크기
+       * - 순간 상승량
+       * 중 하나라도 부족하면 무시합니다.
        */
-      const LARGE_MOTION_THRESHOLD =
-        1.35;
+      const IMPACT_THRESHOLD =
+        1.8;
+
+      const IMPACT_DELTA_THRESHOLD =
+        1.05;
 
       const RELEASE_THRESHOLD =
+        0.72;
+
+      /*
+       * 같은 착지 충격이 여러 센서 이벤트로 중복 집계되는 것만 막습니다.
+       * 달리기는 허용하도록 짧게 설정합니다.
+       */
+      const MIN_IMPACT_INTERVAL_MS =
+        150;
+
+      /*
+       * 착지 충격은 짧게 끝나야 합니다.
+       * 오래 지속되는 흔들림은 한 번의 착지로 보지 않습니다.
+       */
+      const MAX_IMPACT_DURATION_MS =
+        650;
+
+      const MAX_IMPACT_STRENGTH =
+        22;
+
+      /*
+       * 센서값을 너무 부드럽게 만들면 실제 착지 피크가 사라지므로
+       * 비교적 빠르게 반응하도록 설정합니다.
+       */
+      const FILTER_RATIO =
         0.62;
 
-      const MIN_STEP_INTERVAL_MS =
-        320;
+      let previousFilteredStrength =
+        0;
 
-      const MAX_PEAK_DURATION_MS =
-        1_200;
-
-      const MAX_MOTION_STRENGTH =
-        20;
-
-      const FILTER_RATIO =
-        0.46;
-
-      const resetPeak =
+      const resetImpact =
         () => {
           browserPeakStrength.current =
+            0;
+
+          browserPeakDelta.current =
             0;
 
           browserPeakStartedAt.current =
@@ -823,7 +853,7 @@ export default function WalkPage() {
             true;
         };
 
-      const acceptOneStep =
+      const acceptImpact =
         (now: number) => {
           const previousTime =
             browserLastStepTime.current;
@@ -831,7 +861,7 @@ export default function WalkPage() {
           if (
             previousTime > 0 &&
             now - previousTime <
-              MIN_STEP_INTERVAL_MS
+              MIN_IMPACT_INTERVAL_MS
           ) {
             return;
           }
@@ -925,29 +955,42 @@ export default function WalkPage() {
         const filteredStrength =
           browserFilteredStrength.current;
 
+        const strengthDelta =
+          Math.max(
+            0,
+            filteredStrength -
+              previousFilteredStrength,
+          );
+
+        previousFilteredStrength =
+          filteredStrength;
+
         const now =
           Date.now();
 
         /*
-         * 아직 큰 움직임이 시작되지 않았다면
-         * 기준 이상일 때만 피크를 시작합니다.
+         * 아직 착지 충격이 시작되지 않은 상태입니다.
+         * 충격의 절대 크기와 순간 상승량을 동시에 통과해야 합니다.
          */
         if (
           browserPeakStartedAt.current ===
           0
         ) {
-          if (
-            filteredStrength <
-            LARGE_MOTION_THRESHOLD
-          ) {
+          const isLandingImpact =
+            filteredStrength >=
+              IMPACT_THRESHOLD &&
+            strengthDelta >=
+              IMPACT_DELTA_THRESHOLD;
+
+          if (!isLandingImpact) {
             return;
           }
 
           if (
             filteredStrength >
-            MAX_MOTION_STRENGTH
+            MAX_IMPACT_STRENGTH
           ) {
-            resetPeak();
+            resetImpact();
 
             return;
           }
@@ -957,6 +1000,9 @@ export default function WalkPage() {
 
           browserPeakStrength.current =
             filteredStrength;
+
+          browserPeakDelta.current =
+            strengthDelta;
 
           browserStepArmed.current =
             false;
@@ -970,38 +1016,45 @@ export default function WalkPage() {
             filteredStrength,
           );
 
-        const peakDuration =
+        browserPeakDelta.current =
+          Math.max(
+            browserPeakDelta.current,
+            strengthDelta,
+          );
+
+        const impactDuration =
           now -
           browserPeakStartedAt.current;
 
         /*
-         * 너무 오래 이어지는 움직임은 한 번 폐기하고
-         * 다음 큰 움직임을 기다립니다.
+         * 오래 이어지는 움직임은 짧은 착지 충격이 아니므로 폐기합니다.
          */
         if (
-          peakDuration >
-          MAX_PEAK_DURATION_MS
+          impactDuration >
+          MAX_IMPACT_DURATION_MS
         ) {
-          resetPeak();
+          resetImpact();
 
           return;
         }
 
         /*
-         * 큰 움직임이 다시 가라앉으면 1걸음 인정합니다.
+         * 충격이 충분히 가라앉으면 착지 1회를 확정합니다.
          */
         if (
           filteredStrength <=
           RELEASE_THRESHOLD
         ) {
-          const validPeak =
+          const validImpact =
             browserPeakStrength.current >=
-            LARGE_MOTION_THRESHOLD;
+              IMPACT_THRESHOLD &&
+            browserPeakDelta.current >=
+              IMPACT_DELTA_THRESHOLD;
 
-          resetPeak();
+          resetImpact();
 
-          if (validPeak) {
-            acceptOneStep(
+          if (validImpact) {
+            acceptImpact(
               now,
             );
           }
@@ -1363,7 +1416,7 @@ export default function WalkPage() {
     sensorMode === "android"
       ? "앱 걸음 센서로 실시간 측정 중입니다."
       : sensorMode === "browser"
-        ? "모바일웹은 작은 진동을 무시하고 휴대폰이 크게 움직였다가 가라앉는 순간을 1걸음으로 기록합니다."
+        ? "모바일웹은 발을 디딜 때처럼 짧고 강한 충격이 발생했다가 가라앉는 순간을 1걸음으로 기록합니다. 미세한 진동과 부드러운 움직임은 무시합니다."
         : "";
 
   return (
