@@ -1001,18 +1001,18 @@
   }
 }
 .scope :global(.farm-master-v2-character.standing) {
-  left: 50px;
-  bottom: 72px;
-  width: 52%;
-  height: 240px;
+  left: 22px;
+  bottom: 76px;
+  width: 44%;
+  height: 230px;
 }
 
 /* 물주는 캐릭터 */
 .scope :global(.farm-master-v2-character.watering) {
-  left: 50px;
-  bottom: 68px;
-  width: 58%;
-  height: 292px;
+  left: 22px;
+  bottom: 76px;
+  width: 44%;
+  height: 230px;
 
   animation:
     farmV31CharacterWater
@@ -1134,5 +1134,14 @@
 
   .exchangePoint {
     min-width: 82px;
+  }
+}
+@media (max-width: 640px) {
+  .scope :global(.farm-master-v2-character.standing),
+  .scope :global(.farm-master-v2-character.watering) {
+    left: -8px;
+    bottom: 78px;
+    width: 40%;
+    height: 215px;
   }
 }
