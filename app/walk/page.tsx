@@ -803,10 +803,10 @@ export default function WalkPage() {
        * 중 하나라도 부족하면 무시합니다.
        */
       const IMPACT_THRESHOLD =
-        1.8;
+        1.35;
 
       const IMPACT_DELTA_THRESHOLD =
-        1.05;
+        0.72;
 
       const RELEASE_THRESHOLD =
         0.72;
