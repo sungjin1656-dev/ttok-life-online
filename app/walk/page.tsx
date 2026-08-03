@@ -809,26 +809,26 @@ export default function WalkPage() {
        * 실제 걷기보다 약한 손떨림·다리떨림을 입구에서 제거합니다.
        */
       const LARGE_MOTION_THRESHOLD =
-        1.55;
+        0.95;
 
       /*
        * 직전 센서 벡터 대비 변화량 기준:
        * 단순 잔진동보다 휴대폰 전체가 이동하는 순간을 찾습니다.
        */
       const VECTOR_DELTA_THRESHOLD =
-        1.05;
+        0.65;
 
       /*
        * 피크가 이 값 아래로 내려오면 한 번의 큰 움직임이 끝난 것으로 봅니다.
        */
       const RELEASE_THRESHOLD =
-        0.58;
+        0.72;
 
       /*
        * 큰 움직임이 너무 오래 지속되면 한 걸음으로 인정하지 않습니다.
        */
       const MAX_PEAK_DURATION_MS =
-        700;
+        1_400;
 
       const MAX_MOTION_STRENGTH =
         18;
@@ -841,7 +841,7 @@ export default function WalkPage() {
        * 값이 작을수록 부드럽고, 클수록 즉각 반응합니다.
        */
       const FILTER_RATIO =
-        0.28;
+        0.52;
 
       const resetPeak =
         () => {
@@ -1103,21 +1103,26 @@ export default function WalkPage() {
               0.94 +
             magnitude * 0.06;
 
-          const scale =
+          /*
+           * 중력 포함 센서만 제공되는 기기에서는
+           * 전체 벡터를 거의 0으로 축소하지 않고,
+           * 중력 크기와의 차이를 현재 방향에 투영합니다.
+           */
+          const linearMagnitude =
+            Math.abs(
+              magnitude -
+                browserGravity.current,
+            );
+
+          const directionScale =
             magnitude > 0
-              ? Math.max(
-                  0,
-                  (
-                    magnitude -
-                    browserGravity.current
-                  ) /
-                    magnitude,
-                )
+              ? linearMagnitude /
+                magnitude
               : 0;
 
-          x *= scale;
-          y *= scale;
-          z *= scale;
+          x *= directionScale;
+          y *= directionScale;
+          z *= directionScale;
         } else {
           return;
         }
