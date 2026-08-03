@@ -756,21 +756,21 @@ export default function WalkPage() {
        *
        * 튜닝 포인트는 아래 5개만 보면 됩니다.
        */
-      const CONFIRM_CANDIDATES = 3;
+      const CONFIRM_CANDIDATES = 4;
       const MIN_STEP_INTERVAL_MS =
-        260;
+        300;
       const MAX_STEP_INTERVAL_MS =
-        1_350;
+        1_450;
       const MAX_INTERVAL_DIFFERENCE_MS =
-        360;
+        450;
       const PEAK_THRESHOLD =
-        1.15;
+        4.0;
       const VALLEY_THRESHOLD =
-        0.42;
+        0.8;
       const MAX_PEAK_STRENGTH =
-        10.5;
+        14;
       const WALKING_TIMEOUT_MS =
-        1_700;
+        2_000;
 
       const resetSequence =
         () => {
