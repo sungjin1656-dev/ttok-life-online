@@ -270,6 +270,27 @@ export default function WalkPage() {
     useRef(false);
 
   /*
+   * 모바일웹용 3걸음 + 리듬 검증 상태입니다.
+   *
+   * 처음 1~2회 움직임은 보류하고,
+   * 3회 이상 일정한 간격이 확인되면 한꺼번에 인정합니다.
+   */
+  const browserPendingSteps =
+    useRef(0);
+
+  const browserPendingStartedAt =
+    useRef(0);
+
+  const browserPendingIntervals =
+    useRef<number[]>([]);
+
+  const browserWalkingSequenceActive =
+    useRef(false);
+
+  const browserLastAcceptedStrength =
+    useRef(0);
+
+  /*
    * Android 앱 WebView 여부 확인
    *
    * 앱 안에서는 앱 설치 안내를 표시하지 않습니다.
@@ -709,6 +730,116 @@ export default function WalkPage() {
       browserSensorReceived.current =
         false;
 
+      browserPendingSteps.current =
+        0;
+
+      browserPendingStartedAt.current =
+        0;
+
+      browserPendingIntervals.current =
+        [];
+
+      browserWalkingSequenceActive.current =
+        false;
+
+      browserLastAcceptedStrength.current =
+        0;
+
+      const MIN_SEQUENCE_STEPS = 3;
+      const SEQUENCE_CONFIRM_WINDOW_MS =
+        5_000;
+      const SEQUENCE_KEEP_ALIVE_MS =
+        1_800;
+      const MIN_VALID_INTERVAL_MS =
+        320;
+      const MAX_VALID_INTERVAL_MS =
+        1_250;
+      const MAX_RHYTHM_DIFFERENCE_MS =
+        280;
+      const MIN_STEP_STRENGTH =
+        1.55;
+      const MAX_STEP_STRENGTH =
+        6.8;
+      const MIN_REARM_RATIO =
+        0.34;
+
+      const resetBrowserSequence =
+        () => {
+          browserPendingSteps.current =
+            0;
+
+          browserPendingStartedAt.current =
+            0;
+
+          browserPendingIntervals.current =
+            [];
+
+          browserWalkingSequenceActive.current =
+            false;
+
+          browserLastAcceptedStrength.current =
+            0;
+        };
+
+      const isValidBrowserRhythm =
+        () => {
+          const recentIntervals =
+            browserPendingIntervals.current
+              .slice(
+                -(
+                  MIN_SEQUENCE_STEPS -
+                  1
+                ),
+              );
+
+          if (
+            recentIntervals.length <
+            MIN_SEQUENCE_STEPS - 1
+          ) {
+            return false;
+          }
+
+          const allInRange =
+            recentIntervals.every(
+              (interval) =>
+                interval >=
+                  MIN_VALID_INTERVAL_MS &&
+                interval <=
+                  MAX_VALID_INTERVAL_MS,
+            );
+
+          if (!allInRange) {
+            return false;
+          }
+
+          const minimum =
+            Math.min(
+              ...recentIntervals,
+            );
+
+          const maximum =
+            Math.max(
+              ...recentIntervals,
+            );
+
+          return (
+            maximum - minimum <=
+            MAX_RHYTHM_DIFFERENCE_MS
+          );
+        };
+
+      const acceptBrowserSteps =
+        (count: number) => {
+          if (count <= 0) {
+            return;
+          }
+
+          applyLiveTodaySteps(
+            liveGameRef.current
+              .todaySteps + count,
+          );
+        };
+
       const handler = (
         event: DeviceMotionEvent,
       ) => {
@@ -728,7 +859,6 @@ export default function WalkPage() {
           event.accelerationIncludingGravity;
 
         let motionStrength = 0;
-        let threshold = 1.35;
 
         if (
           linear &&
@@ -745,8 +875,6 @@ export default function WalkPage() {
                 linear.z *
                   linear.z,
             );
-
-          threshold = 1.35;
         } else if (
           includingGravity &&
           includingGravity.x !==
@@ -768,26 +896,30 @@ export default function WalkPage() {
 
           browserGravity.current =
             browserGravity.current *
-              0.9 +
-            magnitude * 0.1;
+              0.92 +
+            magnitude * 0.08;
 
           motionStrength =
             Math.abs(
               magnitude -
                 browserGravity.current,
             );
-
-          threshold = 1.05;
         } else {
           return;
         }
 
-        const now =
-          Date.now();
-
+        /*
+         * 다음 걸음을 받기 전에 충분히 진동이 가라앉아야 합니다.
+         * 책상 위 잔진동이나 다리 떨림의 연속 오인식을 줄입니다.
+         */
         if (
           motionStrength <
-          threshold * 0.42
+          Math.max(
+            0.48,
+            browserLastAcceptedStrength
+              .current *
+              MIN_REARM_RATIO,
+          )
         ) {
           browserStepArmed.current =
             true;
@@ -802,20 +934,52 @@ export default function WalkPage() {
         }
 
         if (
-          now -
-            browserLastStepTime.current <
-          280
+          motionStrength <
+            MIN_STEP_STRENGTH ||
+          motionStrength >
+            MAX_STEP_STRENGTH
         ) {
+          if (
+            motionStrength >
+            MAX_STEP_STRENGTH
+          ) {
+            resetBrowserSequence();
+          }
+
+          browserStepArmed.current =
+            false;
+
           return;
         }
 
+        const now =
+          Date.now();
+
+        const previousStepTime =
+          browserLastStepTime.current;
+
+        const interval =
+          previousStepTime > 0
+            ? now - previousStepTime
+            : 0;
+
         if (
-          motionStrength > 9.5
+          previousStepTime > 0 &&
+          interval <
+            MIN_VALID_INTERVAL_MS
         ) {
           browserStepArmed.current =
             false;
 
           return;
+        }
+
+        if (
+          previousStepTime > 0 &&
+          interval >
+            MAX_VALID_INTERVAL_MS
+        ) {
+          resetBrowserSequence();
         }
 
         browserStepArmed.current =
@@ -824,10 +988,78 @@ export default function WalkPage() {
         browserLastStepTime.current =
           now;
 
-        applyLiveTodaySteps(
-          liveGameRef.current
-            .todaySteps + 1,
-        );
+        browserLastAcceptedStrength.current =
+          motionStrength;
+
+        if (
+          browserWalkingSequenceActive
+            .current &&
+          interval > 0 &&
+          interval <=
+            SEQUENCE_KEEP_ALIVE_MS
+        ) {
+          acceptBrowserSteps(1);
+
+          return;
+        }
+
+        if (
+          browserPendingSteps.current ===
+          0
+        ) {
+          browserPendingStartedAt.current =
+            now;
+        } else if (interval > 0) {
+          browserPendingIntervals.current =
+            [
+              ...browserPendingIntervals
+                .current,
+              interval,
+            ].slice(-4);
+        }
+
+        browserPendingSteps.current +=
+          1;
+
+        const pendingElapsed =
+          now -
+          browserPendingStartedAt.current;
+
+        if (
+          browserPendingSteps.current >=
+            MIN_SEQUENCE_STEPS &&
+          pendingElapsed <=
+            SEQUENCE_CONFIRM_WINDOW_MS &&
+          isValidBrowserRhythm()
+        ) {
+          const confirmedSteps =
+            browserPendingSteps.current;
+
+          browserPendingSteps.current =
+            0;
+
+          browserPendingStartedAt.current =
+            0;
+
+          browserPendingIntervals.current =
+            [];
+
+          browserWalkingSequenceActive.current =
+            true;
+
+          acceptBrowserSteps(
+            confirmedSteps,
+          );
+
+          return;
+        }
+
+        if (
+          pendingElapsed >
+          SEQUENCE_CONFIRM_WINDOW_MS
+        ) {
+          resetBrowserSequence();
+        }
       };
 
       browserMotionHandler.current =
@@ -1185,7 +1417,7 @@ export default function WalkPage() {
     sensorMode === "android"
       ? "앱 걸음 센서로 실시간 측정 중입니다."
       : sensorMode === "browser"
-        ? "모바일 모션 센서로 걸음을 추정합니다. 앱보다 오차가 있을 수 있습니다."
+        ? "모바일웹은 3걸음과 보행 리듬을 확인한 뒤 보수적으로 기록합니다. 화면을 켜고 휴대폰을 몸에 지닌 상태로 걸어주세요."
         : "";
 
   return (
