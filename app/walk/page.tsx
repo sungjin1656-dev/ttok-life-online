@@ -764,9 +764,9 @@ export default function WalkPage() {
       const MAX_INTERVAL_DIFFERENCE_MS =
         450;
       const PEAK_THRESHOLD =
-        4.0;
+        2.6;
       const VALLEY_THRESHOLD =
-        0.8;
+        0.65;
       const MAX_PEAK_STRENGTH =
         14;
       const WALKING_TIMEOUT_MS =
