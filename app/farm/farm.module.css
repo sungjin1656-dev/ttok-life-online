@@ -1139,7 +1139,7 @@
 @media (max-width: 640px) {
   .scope :global(.farm-master-v2-character.standing),
   .scope :global(.farm-master-v2-character.watering) {
-    left: -8px;
+    left: 5px;
     bottom: 78px;
     width: 40%;
     height: 215px;
