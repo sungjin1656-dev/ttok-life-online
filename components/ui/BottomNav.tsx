@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 
-const FALLBACK_MALL_URL = "https://ttokmall.cafe24.com";
+const MALL_HOME_URL = "https://ttokmall.cafe24.com";
 
 const items = [
   {
@@ -46,7 +46,10 @@ export function BottomNav() {
       );
     }
 
-    return pathname === href || pathname.startsWith(`${href}/`);
+    return (
+      pathname === href ||
+      pathname.startsWith(`${href}/`)
+    );
   };
 
   const exitGame = () => {
@@ -56,41 +59,31 @@ export function BottomNav() {
       };
     };
 
-    // Android 앱 WebView에서 실행 중인 경우
-    if (typeof currentWindow.Android?.exitGame === "function") {
+    /*
+     * Android 앱 WebView에서는
+     * 네이티브 앱의 쇼핑 화면으로 복귀합니다.
+     */
+    if (
+      typeof currentWindow.Android?.exitGame ===
+      "function"
+    ) {
       currentWindow.Android.exitGame();
       return;
     }
 
-    // 일반 모바일웹·PC에서 쇼핑몰을 통해 들어온 경우
-    const referrer = document.referrer;
-
-    if (referrer) {
-      try {
-        const referrerUrl = new URL(referrer);
-        const currentUrl = new URL(window.location.href);
-
-        if (referrerUrl.origin !== currentUrl.origin) {
-          window.location.href = referrer;
-          return;
-        }
-      } catch {
-        // referrer 주소를 해석하지 못하면 history 방식으로 진행
-      }
-    }
-
-    // 이전 페이지가 있는 경우
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-
-    // 직접 접속한 경우의 최종 이동 주소
-    window.location.href = FALLBACK_MALL_URL;
+    /*
+     * 일반 모바일웹과 PC에서는
+     * 이전 페이지 기록을 사용하지 않고
+     * 카페24 쇼핑몰 홈으로 바로 이동합니다.
+     */
+    window.location.replace(MALL_HOME_URL);
   };
 
   return (
-    <nav className="bottom-nav" aria-label="하단 메뉴">
+    <nav
+      className="bottom-nav"
+      aria-label="하단 메뉴"
+    >
       {items.map((item) => {
         const active = isActive(item.href);
 
@@ -98,15 +91,26 @@ export function BottomNav() {
           <button
             key={item.href}
             type="button"
-            className={`nav-item ${active ? "active" : ""}`}
-            onClick={() => router.push(item.href)}
-            aria-current={active ? "page" : undefined}
+            className={`nav-item ${
+              active ? "active" : ""
+            }`}
+            onClick={() =>
+              router.push(item.href)
+            }
+            aria-current={
+              active ? "page" : undefined
+            }
           >
-            <span className="icon" aria-hidden="true">
+            <span
+              className="icon"
+              aria-hidden="true"
+            >
               {item.icon}
             </span>
 
-            <span className="label">{item.label}</span>
+            <span className="label">
+              {item.label}
+            </span>
           </button>
         );
       })}
@@ -117,11 +121,16 @@ export function BottomNav() {
         onClick={exitGame}
         aria-label="TTOK LIFE 나가기"
       >
-        <span className="icon" aria-hidden="true">
+        <span
+          className="icon"
+          aria-hidden="true"
+        >
           🚪
         </span>
 
-        <span className="label">나가기</span>
+        <span className="label">
+          나가기
+        </span>
       </button>
     </nav>
   );
