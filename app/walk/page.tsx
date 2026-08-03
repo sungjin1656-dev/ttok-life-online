@@ -745,25 +745,31 @@ export default function WalkPage() {
       browserLastAcceptedStrength.current =
         0;
 
+      /*
+       * 모바일웹 V4 완화형
+       *
+       * 기기마다 DeviceMotionEvent 강도가 크게 달라서
+       * 강한 리듬 검증 대신 다음 기준만 적용합니다.
+       *
+       * - 처음 3회 움직임은 보류
+       * - 3회가 4초 안에 들어오면 3걸음 인정
+       * - 이후 180ms 이상 간격의 움직임은 1걸음 인정
+       * - 2초 이상 멈추면 다시 처음 3회부터 확인
+       * - 매우 강한 충격만 제외
+       */
       const MIN_SEQUENCE_STEPS = 3;
-      const SEQUENCE_CONFIRM_WINDOW_MS =
-        8_000;
-      const SEQUENCE_KEEP_ALIVE_MS =
-        2_500;
-      const MIN_VALID_INTERVAL_MS =
-        190;
-      const MAX_VALID_INTERVAL_MS =
-        1_800;
-      const MAX_RHYTHM_DIFFERENCE_MS =
-        850;
+      const SEQUENCE_WINDOW_MS =
+        4_000;
+      const MIN_STEP_INTERVAL_MS =
+        180;
+      const SEQUENCE_RESET_MS =
+        2_000;
       const MIN_STEP_STRENGTH =
-        0.58;
+        0.22;
       const MAX_STEP_STRENGTH =
-        12.5;
-      const MIN_REARM_RATIO =
-        0.42;
+        18;
 
-      const resetBrowserSequence =
+      const resetSequence =
         () => {
           browserPendingSteps.current =
             0;
@@ -776,59 +782,9 @@ export default function WalkPage() {
 
           browserWalkingSequenceActive.current =
             false;
-
-          browserLastAcceptedStrength.current =
-            0;
         };
 
-      const isValidBrowserRhythm =
-        () => {
-          const recentIntervals =
-            browserPendingIntervals.current
-              .slice(
-                -(
-                  MIN_SEQUENCE_STEPS -
-                  1
-                ),
-              );
-
-          if (
-            recentIntervals.length <
-            MIN_SEQUENCE_STEPS - 1
-          ) {
-            return false;
-          }
-
-          const allInRange =
-            recentIntervals.every(
-              (interval) =>
-                interval >=
-                  MIN_VALID_INTERVAL_MS &&
-                interval <=
-                  MAX_VALID_INTERVAL_MS,
-            );
-
-          if (!allInRange) {
-            return false;
-          }
-
-          const minimum =
-            Math.min(
-              ...recentIntervals,
-            );
-
-          const maximum =
-            Math.max(
-              ...recentIntervals,
-            );
-
-          return (
-            maximum - minimum <=
-            MAX_RHYTHM_DIFFERENCE_MS
-          );
-        };
-
-      const acceptBrowserSteps =
+      const acceptSteps =
         (count: number) => {
           if (count <= 0) {
             return;
@@ -896,8 +852,8 @@ export default function WalkPage() {
 
           browserGravity.current =
             browserGravity.current *
-              0.92 +
-            magnitude * 0.08;
+              0.96 +
+            magnitude * 0.04;
 
           motionStrength =
             Math.abs(
@@ -908,58 +864,17 @@ export default function WalkPage() {
           return;
         }
 
-        /*
-         * 다음 걸음을 받기 전에 충분히 진동이 가라앉아야 합니다.
-         * 책상 위 잔진동이나 다리 떨림의 연속 오인식을 줄입니다.
-         */
-        const now =
-          Date.now();
-
-        /*
-         * 진동이 충분히 내려오면 즉시 다음 걸음을 받을 준비를 합니다.
-         * 일부 iPhone은 센서값이 0 근처까지 잘 내려오지 않으므로,
-         * 일정 시간이 지나면 자동으로 다시 활성화합니다.
-         */
-        if (
-          motionStrength <
-          Math.max(
-            0.52,
-            browserLastAcceptedStrength
-              .current *
-              MIN_REARM_RATIO,
-          ) ||
-          now -
-            browserLastStepTime.current >=
-            220
-        ) {
-          browserStepArmed.current =
-            true;
-        }
-
-        if (
-          !browserStepArmed.current
-        ) {
-          return;
-        }
-
         if (
           motionStrength <
             MIN_STEP_STRENGTH ||
           motionStrength >
             MAX_STEP_STRENGTH
         ) {
-          if (
-            motionStrength >
-            MAX_STEP_STRENGTH
-          ) {
-            resetBrowserSequence();
-          }
-
-          browserStepArmed.current =
-            false;
-
           return;
         }
+
+        const now =
+          Date.now();
 
         const previousStepTime =
           browserLastStepTime.current;
@@ -972,24 +887,18 @@ export default function WalkPage() {
         if (
           previousStepTime > 0 &&
           interval <
-            MIN_VALID_INTERVAL_MS
+            MIN_STEP_INTERVAL_MS
         ) {
-          browserStepArmed.current =
-            false;
-
           return;
         }
 
         if (
           previousStepTime > 0 &&
           interval >
-            MAX_VALID_INTERVAL_MS
+            SEQUENCE_RESET_MS
         ) {
-          resetBrowserSequence();
+          resetSequence();
         }
-
-        browserStepArmed.current =
-          false;
 
         browserLastStepTime.current =
           now;
@@ -999,12 +908,9 @@ export default function WalkPage() {
 
         if (
           browserWalkingSequenceActive
-            .current &&
-          interval > 0 &&
-          interval <=
-            SEQUENCE_KEEP_ALIVE_MS
+            .current
         ) {
-          acceptBrowserSteps(1);
+          acceptSteps(1);
 
           return;
         }
@@ -1015,13 +921,6 @@ export default function WalkPage() {
         ) {
           browserPendingStartedAt.current =
             now;
-        } else if (interval > 0) {
-          browserPendingIntervals.current =
-            [
-              ...browserPendingIntervals
-                .current,
-              interval,
-            ].slice(-4);
         }
 
         browserPendingSteps.current +=
@@ -1035,8 +934,7 @@ export default function WalkPage() {
           browserPendingSteps.current >=
             MIN_SEQUENCE_STEPS &&
           pendingElapsed <=
-            SEQUENCE_CONFIRM_WINDOW_MS &&
-          isValidBrowserRhythm()
+            SEQUENCE_WINDOW_MS
         ) {
           const confirmedSteps =
             browserPendingSteps.current;
@@ -1047,13 +945,10 @@ export default function WalkPage() {
           browserPendingStartedAt.current =
             0;
 
-          browserPendingIntervals.current =
-            [];
-
           browserWalkingSequenceActive.current =
             true;
 
-          acceptBrowserSteps(
+          acceptSteps(
             confirmedSteps,
           );
 
@@ -1062,9 +957,9 @@ export default function WalkPage() {
 
         if (
           pendingElapsed >
-          SEQUENCE_CONFIRM_WINDOW_MS
+          SEQUENCE_WINDOW_MS
         ) {
-          resetBrowserSequence();
+          resetSequence();
         }
       };
 
@@ -1423,7 +1318,7 @@ export default function WalkPage() {
     sensorMode === "android"
       ? "앱 걸음 센서로 실시간 측정 중입니다."
       : sensorMode === "browser"
-        ? "모바일웹은 처음 3회의 움직임과 리듬을 확인한 뒤 기록합니다. 실제 걷기·달리기와 규칙적인 움직임이 이전보다 잘 반영됩니다."
+        ? "모바일웹은 처음 3회의 움직임을 확인한 뒤 기록합니다. 걷기·달리기와 규칙적인 흔들림이 이전보다 쉽게 반영됩니다."
         : "";
 
   return (
