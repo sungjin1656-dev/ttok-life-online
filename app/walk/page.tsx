@@ -128,7 +128,13 @@ declare global {
       message?: string,
     ) => void;
 
+    onStepPermissionResult?: (
+      activityRecognitionGranted: boolean,
+      notificationGranted: boolean,
+    ) => void;
+
     Android?: {
+      requestStepPermissions?: () => void;
       startStepSensor?: () => void;
       stopStepSensor?: () => void;
     };
@@ -927,6 +933,56 @@ export default function WalkPage() {
         );
       }
     };
+      /*
+   * Android 권한 요청 결과를 받습니다.
+   *
+   * 신체 활동과 알림 권한이 모두 허용되면
+   * 안내 확인 상태를 저장하고 산책을 자동 시작합니다.
+   */
+  useEffect(() => {
+    window.onStepPermissionResult =
+      (
+        activityRecognitionGranted:
+          boolean,
+        notificationGranted:
+          boolean,
+      ) => {
+        if (
+          !activityRecognitionGranted
+        ) {
+          setSensorError(
+            "걸음 측정을 위해 신체 활동 권한을 허용해주세요.",
+          );
+
+          return;
+        }
+
+        if (!notificationGranted) {
+          setSensorError(
+            "화면을 꺼도 걸음 측정을 계속하려면 알림 권한을 허용해주세요.",
+          );
+
+          return;
+        }
+
+        try {
+          localStorage.setItem(
+            ANDROID_PERMISSION_GUIDE_KEY,
+            "true",
+          );
+        } catch {
+          // 저장소가 제한돼도 산책은 시작합니다.
+        }
+
+        void startWalking();
+      };
+
+    return () => {
+      delete window
+        .onStepPermissionResult;
+    };
+  }, [startWalking]);
+
 
   const pauseWalking = () => {
     walkingRef.current =
@@ -994,22 +1050,28 @@ export default function WalkPage() {
    * 안내창은 기기별로 최초 1회만 표시합니다.
    */
   const confirmAndroidPermissionGuide =
-    () => {
-      try {
-        localStorage.setItem(
-          ANDROID_PERMISSION_GUIDE_KEY,
-          "true",
-        );
-      } catch {
-        // 저장소 사용이 제한돼도 산책은 정상적으로 시작합니다.
-      }
+  () => {
+    setSensorError("");
 
-      setShowPermissionGuide(
-        false,
+    setShowPermissionGuide(
+      false,
+    );
+
+    if (
+      typeof window.Android
+        ?.requestStepPermissions !==
+      "function"
+    ) {
+      setSensorError(
+        "걸음 측정 권한 기능을 사용할 수 없습니다. 앱을 최신 버전으로 다시 실행해주세요.",
       );
 
-      void startWalking();
-    };
+      return;
+    }
+
+    window.Android
+      .requestStepPermissions();
+  };
 
   /*
    * 산책 버튼 처리
