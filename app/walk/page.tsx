@@ -15,6 +15,16 @@ import { useGame } from "@/context/GameContext";
 
 import styles from "./walk.module.css";
 
+/*
+ * 앱 출시 후 실제 Play 스토어 주소가 달라지면
+ * 이 주소만 변경하면 됩니다.
+ */
+const APP_INSTALL_URL =
+  "https://play.google.com/store/apps/details?id=com.ttoklife.app";
+
+const WEB_NOTICE_STORAGE_KEY =
+  "ttok_walk_web_notice_seen";
+
 type SensorMode =
   | "none"
   | "android"
@@ -153,6 +163,23 @@ export default function WalkPage() {
     "none",
   );
 
+  /*
+   * null: 브라우저 환경 확인 전
+   * true: Android 앱 WebView
+   * false: 일반 모바일웹 또는 PC 브라우저
+   */
+  const [
+    isAndroidApp,
+    setIsAndroidApp,
+  ] = useState<boolean | null>(
+    null,
+  );
+
+  const [
+    showInstallModal,
+    setShowInstallModal,
+  ] = useState(false);
+
   const timerRef =
     useRef<ReturnType<
       typeof setInterval
@@ -227,6 +254,18 @@ export default function WalkPage() {
 
   const browserSensorReceived =
     useRef(false);
+
+  /*
+   * Android 앱 WebView 여부 확인
+   *
+   * 앱 안에서는 앱 설치 안내를 표시하지 않습니다.
+   */
+  useEffect(() => {
+    setIsAndroidApp(
+      typeof window.Android !==
+        "undefined",
+    );
+  }, []);
 
   useEffect(() => {
     walkingRef.current =
@@ -912,15 +951,82 @@ export default function WalkPage() {
       liveGameRef.current.todaySteps;
   };
 
-  const toggleWalking = () => {
-    if (walking) {
-      pauseWalking();
+  /*
+   * 앱 설치 페이지로 이동합니다.
+   */
+  const openAppInstall = () => {
+    window.location.href =
+      APP_INSTALL_URL;
+  };
 
-      return;
+  /*
+   * 설치 안내를 닫고 모바일웹에서
+   * 산책 측정을 계속 시작합니다.
+   */
+  const continueWithWeb = () => {
+    try {
+      sessionStorage.setItem(
+        WEB_NOTICE_STORAGE_KEY,
+        "true",
+      );
+    } catch {
+      // 저장소 사용이 제한돼도 산책은 계속 진행합니다.
     }
+
+    setShowInstallModal(
+      false,
+    );
 
     void startWalking();
   };
+
+  /*
+   * 산책 버튼 처리
+   *
+   * Android 앱:
+   * 곧바로 센서를 시작합니다.
+   *
+   * 일반 모바일웹:
+   * 브라우저 세션당 최초 1회
+   * 앱 설치 권장 팝업을 표시합니다.
+   */
+  const handleWalkButtonClick =
+    () => {
+      if (walking) {
+        pauseWalking();
+
+        return;
+      }
+
+      if (
+        isAndroidApp === true
+      ) {
+        void startWalking();
+
+        return;
+      }
+
+      let noticeSeen = false;
+
+      try {
+        noticeSeen =
+          sessionStorage.getItem(
+            WEB_NOTICE_STORAGE_KEY,
+          ) === "true";
+      } catch {
+        noticeSeen = false;
+      }
+
+      if (!noticeSeen) {
+        setShowInstallModal(
+          true,
+        );
+
+        return;
+      }
+
+      void startWalking();
+    };
 
   /*
    * 걸음은 이미 실시간으로 GameContext에 반영되므로
@@ -1235,6 +1341,77 @@ export default function WalkPage() {
             )}
           </section>
 
+          {isAndroidApp ===
+            false && (
+            <section
+              className={
+                styles.appInstallCard
+              }
+              aria-label="TTOK LIFE 앱 설치 안내"
+            >
+              <div
+                className={
+                  styles.appInstallIcon
+                }
+                aria-hidden="true"
+              >
+                📱
+              </div>
+
+              <div
+                className={
+                  styles.appInstallContent
+                }
+              >
+                <span>
+                  더 정확한 걸음 측정
+                </span>
+
+                <strong>
+                  TTOK LIFE 앱으로 걸어보세요
+                </strong>
+
+                <p>
+                  모바일웹은 부정 측정 방지를 위해
+                  걸음 수가 보수적으로 기록될 수
+                  있습니다.
+                </p>
+
+                <ul>
+                  <li>
+                    화면을 꺼도 자동 측정
+                  </li>
+
+                  <li>
+                    더 안정적인 걸음 기록
+                  </li>
+
+                  <li>
+                    보상 누락 방지
+                  </li>
+                </ul>
+
+                <button
+                  type="button"
+                  className={
+                    styles.appInstallButton
+                  }
+                  onClick={
+                    openAppInstall
+                  }
+                >
+                  <span
+                    aria-hidden="true"
+                  >
+                    📲
+                  </span>
+
+                  TTOK LIFE 앱 설치하기
+                </button>
+              </div>
+            </section>
+          )}
+
           <section
             className={
               styles.controlPanel
@@ -1250,7 +1427,7 @@ export default function WalkPage() {
                   : ""
               }`}
               onClick={
-                toggleWalking
+                handleWalkButtonClick
               }
               aria-label={
                 walking
@@ -1288,6 +1465,133 @@ export default function WalkPage() {
 
           <BottomNav />
         </section>
+
+        {showInstallModal && (
+          <div
+            className={
+              styles.installModalBackdrop
+            }
+            role="presentation"
+            onClick={() =>
+              setShowInstallModal(
+                false,
+              )
+            }
+          >
+            <section
+              className={
+                styles.installModal
+              }
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="walk-install-title"
+              onClick={(event) =>
+                event.stopPropagation()
+              }
+            >
+              <button
+                type="button"
+                className={
+                  styles.installModalClose
+                }
+                onClick={() =>
+                  setShowInstallModal(
+                    false,
+                  )
+                }
+                aria-label="닫기"
+              >
+                ×
+              </button>
+
+              <div
+                className={
+                  styles.installModalIcon
+                }
+                aria-hidden="true"
+              >
+                📱
+              </div>
+
+              <span>
+                더 정확한 걸음 측정
+              </span>
+
+              <h2 id="walk-install-title">
+                앱에서는 화면을 꺼도
+                <br />
+                걸음이 기록돼요
+              </h2>
+
+              <p>
+                현재 모바일웹으로 이용 중입니다.
+                웹에서는 기기 환경에 따라 걸음 수가
+                적게 측정되거나 화면을 끄면 측정이
+                중단될 수 있어요.
+              </p>
+
+              <div
+                className={
+                  styles.installBenefits
+                }
+              >
+                <div>
+                  <b
+                    aria-hidden="true"
+                  >
+                    ✓
+                  </b>
+
+                  화면을 꺼도 자동 측정
+                </div>
+
+                <div>
+                  <b
+                    aria-hidden="true"
+                  >
+                    ✓
+                  </b>
+
+                  더 안정적인 걸음 기록
+                </div>
+
+                <div>
+                  <b
+                    aria-hidden="true"
+                  >
+                    ✓
+                  </b>
+
+                  보상 누락 방지
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className={
+                  styles.installPrimaryButton
+                }
+                onClick={
+                  openAppInstall
+                }
+              >
+                📲 TTOK LIFE 앱 설치하기
+              </button>
+
+              <button
+                type="button"
+                className={
+                  styles.installSecondaryButton
+                }
+                onClick={
+                  continueWithWeb
+                }
+              >
+                계속 웹으로 이용하기
+              </button>
+            </section>
+          </div>
+        )}
       </main>
     </Guard>
   );
