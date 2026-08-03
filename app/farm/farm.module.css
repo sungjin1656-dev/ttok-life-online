@@ -960,11 +960,7 @@
     min-height: 378px;
   }
 
-  .scope :global(.farm-master-v2-character) {
-    left: -12px;
-    width: 54%;
-    height: 260px;
-  }
+
 
   .scope :global(.farm-master-v2-pot) {
     left: 49%;
@@ -1000,25 +996,7 @@
     animation: none !important;
   }
 }
-.scope :global(.farm-master-v2-character.standing) {
-  left: 22px;
-  bottom: 76px;
-  width: 44%;
-  height: 230px;
-}
 
-/* 물주는 캐릭터 */
-.scope :global(.farm-master-v2-character.watering) {
-  left: 22px;
-  bottom: 76px;
-  width: 44%;
-  height: 230px;
-
-  animation:
-    farmV31CharacterWater
-    0.62s ease-in-out
-    infinite alternate;
-}
 .exchangeCard {
   margin-top: 16px;
   padding: 18px;
@@ -1136,12 +1114,44 @@
     min-width: 82px;
   }
 }
-@media (max-width: 640px) {
-  .scope :global(.farm-master-v2-character.standing),
-  .scope :global(.farm-master-v2-character.watering) {
-    left: 35px;
-    bottom: 78px;
-    width: 40%;
-    height: 215px;
-  }
+
+/* ==========================
+   PC
+========================== */
+
+.scope :global(.farm-master-v2-character.standing){
+    left:25px;
+    bottom:72px;
+    width:52%;
+    height:240px;
+}
+
+.scope :global(.farm-master-v2-character.watering){
+    left:25px;
+    bottom:72px;
+    width:52%;
+    height:240px;
+
+    animation:
+        farmV31CharacterWater
+        0.62s ease-in-out
+        infinite alternate;
+}
+
+/* ==========================
+   MOBILE
+========================== */
+
+@media (max-width:640px){
+
+.scope :global(.farm-master-v2-character.standing),
+.scope :global(.farm-master-v2-character.watering){
+
+    left:35px;
+    bottom:74px;
+    width:40%;
+    height:215px;
+
+}
+
 }
