@@ -372,10 +372,12 @@ export default function HomePage() {
           {/* 농장 월드 카드 */}
 
           <button
-  type="button"
-  onClick={openWalk}
->
-          
+            type="button"
+            className="home-v2-world-card home-v2-farm-world"
+            onClick={() =>
+              router.push("/farm")
+            }
+          >
             <div className="home-v2-world-overlay" />
 
             <div className="home-v2-world-copy">
