@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { Guard } from "@/components/ui/Guard";
 import {
@@ -13,6 +14,15 @@ import { useGame } from "@/context/GameContext";
 
 const DAILY_GOAL = 10_000;
 const WALK_MISSION_GOAL = 5_000;
+
+/*
+ * Google Play 정식 출시 주소가 확정되면 아래 값만 교체합니다.
+ *
+ * 예:
+ * const ANDROID_APP_STORE_URL =
+ *   "https://play.google.com/store/apps/details?id=com.ttoklife.app";
+ */
+const ANDROID_APP_STORE_URL = "";
 
 function assetForCharacter(
   characterId: string,
@@ -40,6 +50,11 @@ function getTodayKey() {
 export default function HomePage() {
   const router = useRouter();
   const { game } = useGame();
+
+  const [
+    showAppInstallGuide,
+    setShowAppInstallGuide,
+  ] = useState(false);
 
   const stepPercent = Math.min(
     100,
@@ -84,6 +99,48 @@ export default function HomePage() {
         sum + history.reward,
       0,
     );
+
+  const openWalk = () => {
+    /*
+     * Android 앱 WebView 안에서는
+     * 네이티브 GPS 산책 화면을 엽니다.
+     */
+    const androidBridge =
+      (
+        window as typeof window & {
+          Android?: {
+            openNativeWalk?: () => void;
+          };
+        }
+      ).Android;
+
+    if (
+      androidBridge &&
+      typeof androidBridge.openNativeWalk ===
+        "function"
+    ) {
+      androidBridge.openNativeWalk();
+      return;
+    }
+
+    /*
+     * 모바일웹과 PC웹에서는 산책 기능을 실행하지 않고
+     * 앱 설치 안내만 표시합니다.
+     */
+    setShowAppInstallGuide(true);
+  };
+
+  const openAppStore = () => {
+    if (!ANDROID_APP_STORE_URL) {
+      window.alert(
+        "TTOK LIFE 앱은 현재 출시 준비 중입니다.\n정식 출시 후 설치할 수 있어요.",
+      );
+      return;
+    }
+
+    window.location.href =
+      ANDROID_APP_STORE_URL;
+  };
 
   const shareInvite = async () => {
     const inviteUrl =
@@ -234,9 +291,7 @@ export default function HomePage() {
               <button
                 type="button"
                 className="home-v2-walk-start"
-                onClick={() =>
-                  router.push("/walk")
-                }
+                onClick={openWalk}
               >
                 <span aria-hidden="true">
                   👟
@@ -592,6 +647,129 @@ export default function HomePage() {
           </section>
 
         </main>
+
+        {showAppInstallGuide && (
+          <div
+            className="ttok-app-install-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ttok-app-install-title"
+            onClick={() =>
+              setShowAppInstallGuide(false)
+            }
+          >
+            <div
+              className="ttok-app-install-card"
+              onClick={(event) =>
+                event.stopPropagation()
+              }
+            >
+              <span
+                className="ttok-app-install-icon"
+                aria-hidden="true"
+              >
+                📍
+              </span>
+
+              <strong
+                id="ttok-app-install-title"
+              >
+                산책은 앱에서만 이용할 수 있어요
+              </strong>
+
+              <p>
+                공정한 GPS 기록과 실외 산책
+                인증을 위해 TTOK LIFE 앱에서만
+                산책을 시작할 수 있습니다.
+              </p>
+
+              <button
+                type="button"
+                className="ttok-app-install-primary"
+                onClick={openAppStore}
+              >
+                앱 설치하기
+              </button>
+
+              <button
+                type="button"
+                className="ttok-app-install-secondary"
+                onClick={() =>
+                  setShowAppInstallGuide(false)
+                }
+              >
+                나중에
+              </button>
+            </div>
+          </div>
+        )}
+
+        <style jsx>{`
+          .ttok-app-install-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(15, 23, 42, 0.56);
+          }
+
+          .ttok-app-install-card {
+            width: min(100%, 380px);
+            padding: 28px 22px 22px;
+            border-radius: 24px;
+            background: #ffffff;
+            text-align: center;
+            box-shadow:
+              0 20px 50px
+              rgba(15, 23, 42, 0.22);
+          }
+
+          .ttok-app-install-icon {
+            display: block;
+            margin-bottom: 12px;
+            font-size: 42px;
+          }
+
+          .ttok-app-install-card strong {
+            display: block;
+            color: #172033;
+            font-size: 21px;
+            line-height: 1.4;
+          }
+
+          .ttok-app-install-card p {
+            margin: 12px 0 22px;
+            color: #64748b;
+            font-size: 15px;
+            line-height: 1.65;
+            word-break: keep-all;
+          }
+
+          .ttok-app-install-primary,
+          .ttok-app-install-secondary {
+            width: 100%;
+            min-height: 48px;
+            border: 0;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+          }
+
+          .ttok-app-install-primary {
+            color: #ffffff;
+            background: #2878ff;
+          }
+
+          .ttok-app-install-secondary {
+            margin-top: 8px;
+            color: #64748b;
+            background: #f1f5f9;
+          }
+        `}</style>
 
         <TTBottomNav />
       </TTAppShell>
